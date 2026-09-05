@@ -1,0 +1,65 @@
+@using CleanCode.Data
+@using System.ComponentModel.DataAnnotations
+@inject AlbumCatalog Catalog
+@inject NavigationManager Navigation
+
+<EditForm Model="Model" OnValidSubmit="SaveAsync">
+    <DataAnnotationsValidator />
+    <ValidationSummary />
+
+    @if (!string.IsNullOrWhiteSpace(errorMessage))
+    {
+        <div class="alert alert-danger">@errorMessage</div>
+    }
+
+    <div class="mb-3">
+        <label class="form-label" for="album-name">Name</label>
+        <InputText id="album-name" class="form-control" @bind-Value="Model.Name" />
+        <ValidationMessage For="@(() => Model.Name)" />
+    </div>
+
+    <div class="mb-4">
+        <label class="form-label" for="description">Full description</label>
+        <InputTextArea id="description" class="form-control" rows="8" @bind-Value="Model.FullDescription" />
+        <ValidationMessage For="@(() => Model.FullDescription)" />
+    </div>
+
+    <div class="d-flex gap-2">
+        <button class="btn btn-primary" type="submit">@SubmitLabel</button>
+        <a class="btn btn-outline-secondary" href="albums">Cancel</a>
+    </div>
+</EditForm>
+
+@code {
+    [Parameter, EditorRequired]
+    public AlbumFormModel Model { get; set; } = new();
+
+    [Parameter]
+    public string SubmitLabel { get; set; } = "Save album";
+
+    [Parameter]
+    public bool IsNew { get; set; }
+
+    private string? errorMessage;
+
+    private Task SaveAsync()
+    {
+        errorMessage = null;
+        if (Catalog.ImageFolderNameExists(Model.ImageFolderName, IsNew ? null : Model.Id))
+        {
+            errorMessage = "That image folder name is already in use.";
+            return Task.CompletedTask;
+        }
+
+        if (IsNew)
+            Catalog.Create(Model);
+        else if (!Catalog.Update(Model))
+        {
+            errorMessage = "The album could not be updated.";
+            return Task.CompletedTask;
+        }
+
+        Navigation.NavigateTo($"albums/{Model.Id}");
+        return Task.CompletedTask;
+    }
+}

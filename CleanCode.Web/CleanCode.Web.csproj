@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <UserSecretsId>3e092364-eccb-432c-9f63-9a74ee7fbe2f</UserSecretsId>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\CleanCode.ServiceDefaults\CleanCode.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\CleanCode.Data\CleanCode.Data.csproj" />
+    <ProjectReference Include="..\AiFoundryLocal\AiFoundryLocal.csproj" />
+    <ProjectReference Include="..\CleanCode.AiOrgestation\CleanCode.AiOrchestration.csproj" />
+  </ItemGroup>
+
+</Project>

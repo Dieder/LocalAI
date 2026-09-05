@@ -1,0 +1,64 @@
+@page "/albums/{Id}"
+@rendermode InteractiveServer
+@using CleanCode.Data
+@inject AlbumCatalog Catalog
+@inject NavigationManager Navigation
+
+<PageTitle>@(album?.Name ?? "Album")</PageTitle>
+
+@if (album is null)
+{
+    <div class="alert alert-warning">Album not found.</div>
+    <a href="albums">Back to albums</a>
+}
+else
+{
+    <div class="d-flex justify-content-between align-items-start mb-4">
+        <div>
+            <a class="text-decoration-none" href="albums">&larr; Back to albums</a>
+            <p class="text-uppercase text-muted small mt-3 mb-1">@album.ImageFolderName</p>
+            <h1>@album.Name</h1>
+        </div>
+        <div class="d-flex gap-2">
+            <a class="btn btn-outline-secondary" href="albums/@album.Id/photos">Manage photos</a>
+            <a class="btn btn-outline-primary" href="albums/@album.Id/edit">Edit</a>
+            <button class="btn btn-outline-danger" @onclick="DeleteAsync">Delete</button>
+        </div>
+    </div>
+
+    <section class="mb-4">
+        <h2 class="h5">Image folder</h2>
+        <p><code>@album.ImageFolderName</code></p>
+    </section>
+
+    <section class="mb-4">
+        <h2 class="h5">Description</h2>
+        <p class="lead" style="white-space: pre-wrap">@album.FullDescription</p>
+    </section>
+
+    <dl class="row text-muted">
+        <dt class="col-sm-3">Created</dt>
+        <dd class="col-sm-9">@album.CreatedUtc.ToLocalTime().ToString("f")</dd>
+        <dt class="col-sm-3">Last updated</dt>
+        <dd class="col-sm-9">@album.UpdatedUtc.ToLocalTime().ToString("f")</dd>
+    </dl>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private Album? album;
+
+    protected override void OnInitialized()
+    {
+        album = Catalog.Get(Id);
+    }
+
+    private Task DeleteAsync()
+    {
+        Catalog.Delete(Id);
+        Navigation.NavigateTo("albums");
+        return Task.CompletedTask;
+    }
+}

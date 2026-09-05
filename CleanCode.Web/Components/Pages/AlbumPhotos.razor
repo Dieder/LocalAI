@@ -1,0 +1,276 @@
+@page "/albums/{Id}/photos"
+@rendermode InteractiveServer
+@implements IAsyncDisposable
+@using CleanCode.Data
+@using CleanCode.AiOrchestration
+@using AiFoundryLocal
+@using Microsoft.AspNetCore.Components.Forms
+@inject AlbumCatalog Catalog
+@inject AzurePhotoStorage Storage
+@inject PhotoVisionOrchestrator VisionOrchestrator
+@inject Phi3VisionModel VisionModel
+@inject PhotoIndexQueue IndexQueue
+@inject NavigationManager Navigation
+
+<PageTitle>Photos - @(album?.Name ?? "Album")</PageTitle>
+
+@if (album is null)
+{
+    <div class="alert alert-warning">Album not found.</div>
+    <a href="albums">Back to albums</a>
+}
+else
+{
+    <div class="mb-4">
+        <a class="text-decoration-none" href="albums/@album.Id">&larr; Back to album</a>
+        <h1 class="mt-3">Manage photos</h1>
+        <p class="text-muted">@album.Name</p>
+    </div>
+
+    <div class="border rounded p-4 mb-4 bg-light">
+        <label class="form-label" for="photo-upload">Upload photos</label>
+        <InputFile id="photo-upload" OnChange="UploadAsync" multiple accept="image/*,.rw2" />
+        <div class="form-text">Images are stored in Azure Blob Storage under @album.ImageFolderName.</div>
+        @if (VisionModel.IsLoaded)
+        {
+            <div class="mt-3 d-flex align-items-center gap-3">
+                <button class="btn btn-outline-primary" type="button" @onclick="IndexTagsAsync" disabled="@isIndexing">
+                    @(isIndexing ? "Indexing tags..." : "Index tags with vision model")
+                </button>
+                @if (!string.IsNullOrWhiteSpace(indexMessage))
+                {
+                    <span class="text-muted">@indexMessage</span>
+                }
+            </div>
+        }
+        else
+        {
+            <p class="mt-3 mb-0 text-muted"><em>Vision model is loading. Photo management is available now.</em></p>
+        }
+        @if (isUploading)
+        {
+            <p class="mt-3 mb-0"><em>Uploading...</em></p>
+        }
+        @if (!string.IsNullOrWhiteSpace(errorMessage))
+        {
+            <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+        }
+    </div>
+
+    @if (photos.Count == 0)
+    {
+        <p class="text-muted">No photos uploaded yet.</p>
+    }
+    else
+    {
+        <div class="row row-cols-1 row-cols-sm-2 row-cols-lg-4 g-4">
+            @foreach (var photo in photos)
+            {
+                <div class="col">
+                    <article class="card h-100 shadow-sm">
+                        <img class="card-img-top" src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" style="height: 180px; object-fit: cover;" />
+                        <div class="card-body">
+                            <p class="card-text text-truncate" title="@photo.OriginalFileName">@photo.OriginalFileName</p>
+                            <small class="text-muted">@FormatLength(photo.Length)</small>
+                            @if (!string.IsNullOrWhiteSpace(photo.Description))
+                            {
+                                <p class="mt-2 mb-0 small" style="white-space: pre-wrap">@photo.Description</p>
+                            }
+                            @if (photo.Tags.Count > 0)
+                            {
+                                <div class="mt-2 d-flex flex-wrap gap-1" aria-label="Photo tags">
+                                    @foreach (var tag in photo.Tags)
+                                    {
+                                        <span class="badge text-bg-secondary">@tag</span>
+                                    }
+                                </div>
+                            }
+                        </div>
+                        <div class="card-footer bg-white border-0">
+                            @if (VisionModel.IsLoaded)
+                            {
+                                <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => IndexPhotoAsync(photo)" disabled="@IsPhotoIndexing(photo)">
+                                    @(IsPhotoIndexing(photo) ? "Analysing..." : "Index tags")
+                                </button>
+                            }
+                            <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(photo)">Delete</button>
+                        </div>
+                    </article>
+                </div>
+            }
+        </div>
+    }
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private Album? album;
+    private IReadOnlyList<AlbumPhoto> photos = [];
+    private bool isUploading;
+    private bool isIndexing;
+    private string? errorMessage;
+    private string? indexMessage;
+    private readonly HashSet<string> indexingPhotoIds = new(StringComparer.OrdinalIgnoreCase);
+    private readonly CancellationTokenSource pageCts = new();
+
+    protected override void OnInitialized()
+    {
+        album = Catalog.Get(Id);
+        LoadPhotos();
+        _ = WaitForModelAsync();
+    }
+
+    private async Task WaitForModelAsync()
+    {
+        try
+        {
+            while (!pageCts.IsCancellationRequested)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(1), pageCts.Token);
+                LoadPhotos();
+                await InvokeAsync(StateHasChanged);
+            }
+        }
+        catch (OperationCanceledException) when (pageCts.IsCancellationRequested)
+        {
+        }
+    }
+
+    private async Task UploadAsync(InputFileChangeEventArgs args)
+    {
+        if (album is null)
+            return;
+
+        isUploading = true;
+        errorMessage = null;
+        try
+        {
+            foreach (var file in args.GetMultipleFiles(100))
+            {
+                var extension = Path.GetExtension(file.Name);
+                var blobName = $"{album.ImageFolderName}/{Guid.NewGuid():N}{extension.ToLowerInvariant()}";
+                await using var content = file.OpenReadStream(maxAllowedSize: 100 * 1024 * 1024);
+                await Storage.UploadAsync(blobName, content, file.ContentType, CancellationToken.None);
+
+                var photo = new AlbumPhoto
+                {
+                    AlbumId = album.Id,
+                    BlobName = blobName,
+                    OriginalFileName = file.Name,
+                    ContentType = file.ContentType,
+                    Length = file.Size,
+                    UploadedUtc = DateTime.UtcNow,
+                };
+                Catalog.AddPhoto(photo);
+                IndexQueue.Enqueue(new AlbumPhotoIndexRequest(album.Id, photo.Id));
+            }
+
+            Catalog.Touch(album.Id);
+            LoadPhotos();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Photo upload failed: {exception.Message}";
+        }
+        finally
+        {
+            isUploading = false;
+        }
+    }
+
+    private async Task DeleteAsync(AlbumPhoto photo)
+    {
+        errorMessage = null;
+        try
+        {
+            await Storage.DeleteAsync(photo.BlobName);
+            Catalog.DeletePhoto(photo.Id);
+            Catalog.Touch(Id);
+            LoadPhotos();
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Photo deletion failed: {exception.Message}";
+        }
+    }
+
+    private async Task IndexTagsAsync()
+    {
+        if (album is null)
+            return;
+
+        isIndexing = true;
+        errorMessage = null;
+        indexMessage = null;
+        try
+        {
+            var result = await VisionOrchestrator.IndexAlbumPhotosAsync(album.Id, Catalog, Storage);
+            LoadPhotos();
+            indexMessage = $"Indexed {result.Indexed}, skipped {result.Skipped}, failed {result.Failed}.";
+            if (result.Failed > 0)
+                errorMessage = "Some photos could not be indexed. Check the local ONNX model directory and runtime logs.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Tag indexing failed. Check the local ONNX model directory and runtime logs: {exception.Message}";
+        }
+        finally
+        {
+            isIndexing = false;
+        }
+    }
+
+    private async Task IndexPhotoAsync(AlbumPhoto photo)
+    {
+        errorMessage = null;
+        indexMessage = null;
+        try
+        {
+            indexingPhotoIds.Add(photo.Id);
+            await InvokeAsync(StateHasChanged);
+            await VisionOrchestrator.IndexPhotoAsync(photo, Catalog, Storage);
+            LoadPhotos();
+            indexMessage = $"Indexed {photo.OriginalFileName}.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Tag indexing failed. Check the local ONNX model directory and runtime logs: {exception.Message}";
+        }
+        finally
+        {
+            indexingPhotoIds.Remove(photo.Id);
+            await InvokeAsync(StateHasChanged);
+        }
+    }
+
+    private void LoadPhotos()
+    {
+        photos = album is null ? [] : Catalog.ListPhotos(album.Id);
+    }
+
+    private bool IsPhotoIndexing(AlbumPhoto photo)
+    {
+        return isIndexing ||
+               indexingPhotoIds.Contains(photo.Id) ||
+               IndexQueue.IsPending(photo.Id);
+    }
+
+    private static string FormatLength(long length)
+    {
+        return length switch
+        {
+            < 1024 => $"{length} B",
+            < 1024 * 1024 => $"{length / 1024d:0.0} KB",
+            _ => $"{length / 1024d / 1024d:0.0} MB",
+        };
+    }
+
+    public ValueTask DisposeAsync()
+    {
+        pageCts.Cancel();
+        pageCts.Dispose();
+        return ValueTask.CompletedTask;
+    }
+}

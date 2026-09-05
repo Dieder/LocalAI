@@ -1,0 +1,61 @@
+@page "/albums"
+@rendermode InteractiveServer
+@using CleanCode.Data
+@inject AlbumCatalog Catalog
+@inject NavigationManager Navigation
+
+<PageTitle>Albums</PageTitle>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <p class="text-uppercase text-muted small mb-1">Library</p>
+        <h1 class="mb-0">Albums</h1>
+    </div>
+    <a class="btn btn-primary" href="albums/create">
+        <span class="bi bi-plus-lg" aria-hidden="true"></span> Create album
+    </a>
+</div>
+
+@if (albums.Count == 0)
+{
+    <div class="border rounded p-5 text-center bg-light">
+        <h2 class="h4">No albums yet</h2>
+        <p class="text-muted">Create an album to start organizing your photos.</p>
+        <a class="btn btn-primary" href="albums/create">Create your first album</a>
+    </div>
+}
+else
+{
+    <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
+        @foreach (var album in albums)
+        {
+            <div class="col">
+                <article class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <p class="text-muted small mb-2">@album.ImageFolderName</p>
+                        <h2 class="h4 card-title">@album.Name</h2>
+                        <p class="card-text text-muted">@Truncate(album.FullDescription)</p>
+                    </div>
+                    <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
+                        <small class="text-muted">Updated @album.UpdatedUtc.ToLocalTime().ToString("d")</small>
+                        <a class="btn btn-sm btn-outline-primary" href="albums/@album.Id">View</a>
+                    </div>
+                </article>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private IReadOnlyList<Album> albums = [];
+
+    protected override void OnInitialized()
+    {
+        albums = Catalog.List();
+    }
+
+    private static string Truncate(string value)
+    {
+        return value.Length <= 140 ? value : $"{value[..137]}...";
+    }
+}

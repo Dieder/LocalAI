@@ -1,0 +1,17 @@
+@page "/albums/create"
+@rendermode InteractiveServer
+@using CleanCode.Data
+
+<PageTitle>Create album</PageTitle>
+
+<div class="mb-4">
+    <a class="text-decoration-none" href="albums">&larr; Back to albums</a>
+    <h1 class="mt-3">Create album</h1>
+    <p class="text-muted">Add the details for a new photo collection.</p>
+</div>
+
+<AlbumForm Model="model" IsNew="true" SubmitLabel="Create album" />
+
+@code {
+    private AlbumFormModel model = new();
+}
