@@ -1,0 +1,45 @@
+﻿<div class="top-row ps-3 navbar navbar-dark">
+    <div class="container-fluid">
+        <a class="navbar-brand studio-brand" href="">
+            <span class="brand-mark"><span class="bi bi-aperture" aria-hidden="true"></span></span>
+            <span>Album studio</span>
+        </a>
+    </div>
+</div>
+
+<input type="checkbox" title="Navigation menu" class="navbar-toggler" />
+
+<div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
+    <nav class="nav flex-column">
+        <div class="nav-kicker px-3">Workspace</div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="" Match="NavLinkMatch.All">
+                <span class="nav-icon bi bi-house-door-fill" aria-hidden="true"></span>
+                <span>Overview</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link" href="albums">
+                <span class="nav-icon bi bi-collection" aria-hidden="true"></span>
+                <span>All albums</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-item px-3">
+            <NavLink class="nav-link nav-link-accent" href="albums/create">
+                <span class="nav-icon bi bi-plus-circle" aria-hidden="true"></span>
+                <span>Create album</span>
+            </NavLink>
+        </div>
+
+        <div class="nav-kicker px-3 mt-4">Inside an album</div>
+        <div class="nav-item px-3">
+            <span class="nav-note">
+                <span class="bi bi-images" aria-hidden="true"></span>
+                <span>Upload photos, arrange pages, and publish a viewable album from its album page.</span>
+            </span>
+        </div>
+    </nav>
+</div>
