@@ -1,0 +1,138 @@
+@page "/albums/{Id}/layout/view"
+@rendermode InteractiveServer
+@using CleanCode.Data
+@using CleanCode.Web.Components.Layout
+@inject AlbumCatalog Catalog
+@inject NavigationManager Navigation
+
+<PageTitle>@(albumLayout?.Title ?? album?.Name ?? "Album")</PageTitle>
+
+@if (album is null)
+{
+    <div class="alert alert-warning">Album not found.</div>
+    <a href="albums">Back to albums</a>
+}
+else if (albumLayout is null)
+{
+    <div class="alert alert-warning">No layout has been created for this album yet.</div>
+    <a class="btn btn-primary" href="albums/@album.Id/layout/edit">Create layout</a>
+}
+else
+{
+    <div class="layout-viewer" tabindex="0" @onkeydown="HandleKeyDown">
+        <div class="layout-viewer-toolbar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+            <div>
+                <a class="text-decoration-none" href="albums/@album.Id">&larr; Back to album</a>
+            </div>
+            <div class="d-flex gap-2">
+                <a class="btn btn-sm btn-outline-secondary" href="albums/@album.Id/layout/edit">Edit layout</a>
+            </div>
+        </div>
+
+        <div class="layout-viewer-page">
+            @if (currentViewIndex == 0)
+            {
+                <LayoutPageRenderer AlbumId="@album.Id"
+                                    IsTitlePage="true"
+                                       Title="@(albumLayout.Title)"
+                                       Subtitle="@(albumLayout.Subtitle)"
+                                       CoverPhotoId="@(albumLayout.CoverPhotoId)"
+                                    PhotoLookup="@photoLookup"
+                                    Editable="false" />
+            }
+            else if (currentContentPage is not null)
+            {
+                <LayoutPageRenderer AlbumId="@album.Id"
+                                    TemplateId="@currentContentPage.TemplateId"
+                                    Photos="@currentContentPage.Photos"
+                                    PhotoLookup="@photoLookup"
+                                    Editable="false" />
+            }
+        </div>
+
+        <div class="layout-viewer-nav d-flex justify-content-between align-items-center mt-3">
+            <button type="button" class="btn btn-outline-primary" @onclick="PreviousPage" disabled="@(currentViewIndex == 0)">
+                &larr; Previous
+            </button>
+            <span class="text-muted">@GetPageLabel()</span>
+            <button type="button" class="btn btn-outline-primary" @onclick="NextPage" disabled="@(currentViewIndex >= totalPages - 1)">
+                Next &rarr;
+            </button>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private Album? album;
+    private ViewableAlbumLayout? albumLayout;
+    private Dictionary<string, AlbumPhoto> photoLookup = new(StringComparer.OrdinalIgnoreCase);
+    private int currentViewIndex;
+    private int totalPages;
+    private LayoutPage? currentContentPage;
+
+    protected override void OnInitialized()
+    {
+        album = Catalog.Get(Id);
+        if (album is null)
+            return;
+
+        albumLayout = Catalog.GetLayout(Id);
+        if (albumLayout is null)
+            return;
+
+        var photos = Catalog.ListPhotos(Id);
+        photoLookup = photos.ToDictionary(photo => photo.Id, StringComparer.OrdinalIgnoreCase);
+        totalPages = 1 + albumLayout.Pages.Count;
+        UpdateCurrentContentPage();
+    }
+
+    private void HandleKeyDown(KeyboardEventArgs args)
+    {
+        if (args.Key is "ArrowLeft" or "ArrowUp")
+            PreviousPage();
+        else if (args.Key is "ArrowRight" or "ArrowDown")
+            NextPage();
+    }
+
+    private void UpdateCurrentContentPage()
+    {
+        if (albumLayout is null || currentViewIndex == 0)
+        {
+            currentContentPage = null;
+            return;
+        }
+
+        currentContentPage = albumLayout.Pages
+            .OrderBy(page => page.Number)
+            .ElementAtOrDefault(currentViewIndex - 1);
+    }
+
+    private void PreviousPage()
+    {
+        if (currentViewIndex > 0)
+        {
+            currentViewIndex--;
+            UpdateCurrentContentPage();
+        }
+    }
+
+    private void NextPage()
+    {
+        if (currentViewIndex < totalPages - 1)
+        {
+            currentViewIndex++;
+            UpdateCurrentContentPage();
+        }
+    }
+
+    private string GetPageLabel()
+    {
+        if (currentViewIndex == 0)
+            return "Title page";
+
+        return $"Page {currentViewIndex} of {totalPages - 1}";
+    }
+}

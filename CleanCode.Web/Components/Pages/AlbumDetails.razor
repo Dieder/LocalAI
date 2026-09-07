@@ -19,8 +19,15 @@ else
             <p class="text-uppercase text-muted small mt-3 mb-1">@album.ImageFolderName</p>
             <h1>@album.Name</h1>
         </div>
-        <div class="d-flex gap-2">
+        <div class="d-flex gap-2 flex-wrap">
             <a class="btn btn-outline-secondary" href="albums/@album.Id/photos">Manage photos</a>
+            <a class="btn btn-outline-primary" href="albums/@album.Id/layout/edit">
+                @(hasLayout ? "Edit layout" : "Create layout")
+            </a>
+            @if (hasLayout)
+            {
+                <a class="btn btn-primary" href="albums/@album.Id/layout/view">View album</a>
+            }
             <a class="btn btn-outline-primary" href="albums/@album.Id/edit">Edit</a>
             <button class="btn btn-outline-danger" @onclick="DeleteAsync">Delete</button>
         </div>
@@ -49,10 +56,12 @@ else
     public string Id { get; set; } = string.Empty;
 
     private Album? album;
+    private bool hasLayout;
 
     protected override void OnInitialized()
     {
         album = Catalog.Get(Id);
+        hasLayout = album is not null && Catalog.HasLayout(Id);
     }
 
     private Task DeleteAsync()

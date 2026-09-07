@@ -1,0 +1,155 @@
+@using CleanCode.Data
+
+<div class="layout-page-renderer @(IsTitlePage ? "title-page" : $"template-{TemplateId.ToLowerInvariant()}")">
+    @if (IsTitlePage)
+    {
+        <div class="title-page-content">
+            <div class="title-page-text">
+                <h2 class="title-page-heading">@Title</h2>
+                @if (!string.IsNullOrWhiteSpace(Subtitle))
+                {
+                    <p class="title-page-subtitle">@Subtitle</p>
+                }
+            </div>
+            <div class="title-page-cover @(Editable ? "editable-slot" : "")"
+                 @ondragover="AllowDrop"
+                 @ondrop="() => HandleCoverDrop()"
+                 @ondrop:preventDefault
+                 @ondragover:preventDefault>
+                @if (!string.IsNullOrWhiteSpace(CoverPhotoId))
+                {
+                    <div class="slot-photo @(Editable ? "draggable" : "")"
+                         draggable="@Editable"
+                         @ondragstart="() => HandleSlotDragStart(0, CoverPhotoId!)">
+                        <img src="@GetPhotoUrl(CoverPhotoId!)" alt="Cover photo" />
+                        @if (Editable)
+                        {
+                            <button type="button" class="slot-remove btn btn-sm btn-dark" @onclick="HandleCoverRemove" @onclick:stopPropagation="true">×</button>
+                        }
+                    </div>
+                }
+                else if (Editable)
+                {
+                    <span class="slot-placeholder">Drop cover photo</span>
+                }
+            </div>
+        </div>
+    }
+    else
+    {
+        @foreach (var rectangle in Template.Rectangles.OrderBy(r => r.Order))
+        {
+            var slot = GetSlot(rectangle.Number);
+            var photoId = slot?.PhotoId;
+            <div class="layout-slot slot-@rectangle.Number size-@rectangle.Size.ToLowerInvariant() @(Editable ? "editable-slot" : "")"
+                 @ondragover="AllowDrop"
+                 @ondrop="() => HandleSlotDrop(rectangle.Number)"
+                 @ondrop:preventDefault
+                 @ondragover:preventDefault>
+                @if (!string.IsNullOrWhiteSpace(photoId))
+                {
+                    <div class="slot-photo @(Editable ? "draggable" : "")"
+                         draggable="@Editable"
+                         @ondragstart="() => HandleSlotDragStart(rectangle.Number, photoId!)">
+                        <img src="@GetPhotoUrl(photoId!)" alt="@GetPhotoName(photoId!)" />
+                        @if (Editable)
+                        {
+                            <button type="button" class="slot-remove btn btn-sm btn-dark" @onclick="() => HandleSlotRemove(rectangle.Number)" @onclick:stopPropagation="true">×</button>
+                        }
+                    </div>
+                }
+                else if (Editable)
+                {
+                    <span class="slot-placeholder">Drop photo</span>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    public string AlbumId { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool IsTitlePage { get; set; }
+
+    [Parameter]
+    public string TemplateId { get; set; } = LayoutTemplateIds.OneBig;
+
+    [Parameter]
+    public IReadOnlyList<PagePhotoSlot> Photos { get; set; } = [];
+
+    [Parameter]
+    public IReadOnlyDictionary<string, AlbumPhoto> PhotoLookup { get; set; } = new Dictionary<string, AlbumPhoto>();
+
+    [Parameter]
+    public string Title { get; set; } = string.Empty;
+
+    [Parameter]
+    public string Subtitle { get; set; } = string.Empty;
+
+    [Parameter]
+    public string? CoverPhotoId { get; set; }
+
+    [Parameter]
+    public bool Editable { get; set; }
+
+    [Parameter]
+    public EventCallback<LayoutDropEventArgs> OnPhotoDropped { get; set; }
+
+    [Parameter]
+    public EventCallback<LayoutDragStartEventArgs> OnPhotoDragStarted { get; set; }
+
+    [Parameter]
+    public EventCallback<LayoutRemoveEventArgs> OnPhotoRemoved { get; set; }
+
+    [Parameter]
+    public int? PageNumber { get; set; }
+
+    private LayoutTemplate Template => LayoutTemplates.Get(TemplateId);
+
+    private PagePhotoSlot? GetSlot(int number)
+    {
+        return Photos.FirstOrDefault(slot => slot.Number == number);
+    }
+
+    private string GetPhotoUrl(string photoId)
+    {
+        return $"albums/{AlbumId}/photos/{photoId}/content";
+    }
+
+    private string GetPhotoName(string photoId)
+    {
+        return PhotoLookup.TryGetValue(photoId, out var photo)
+            ? photo.OriginalFileName
+            : "Photo";
+    }
+
+    private static void AllowDrop(DragEventArgs _) { }
+
+    private Task HandleSlotDragStart(int slotNumber, string photoId)
+    {
+        return OnPhotoDragStarted.InvokeAsync(new LayoutDragStartEventArgs(photoId, slotNumber, IsTitlePage, PageNumber));
+    }
+
+    private Task HandleSlotDrop(int slotNumber)
+    {
+        return OnPhotoDropped.InvokeAsync(new LayoutDropEventArgs(slotNumber, IsTitlePage));
+    }
+
+    private Task HandleCoverDrop()
+    {
+        return OnPhotoDropped.InvokeAsync(new LayoutDropEventArgs(0, true));
+    }
+
+    private Task HandleSlotRemove(int slotNumber)
+    {
+        return OnPhotoRemoved.InvokeAsync(new LayoutRemoveEventArgs(slotNumber, false));
+    }
+
+    private Task HandleCoverRemove()
+    {
+        return OnPhotoRemoved.InvokeAsync(new LayoutRemoveEventArgs(0, true));
+    }
+}

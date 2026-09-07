@@ -1,0 +1,405 @@
+@page "/albums/{Id}/layout/edit"
+@rendermode InteractiveServer
+@using CleanCode.Data
+@using CleanCode.Web.Components.Layout
+@inject AlbumCatalog Catalog
+@inject NavigationManager Navigation
+
+<PageTitle>Edit layout - @(album?.Name ?? "Album")</PageTitle>
+
+@if (album is null)
+{
+    <div class="alert alert-warning">Album not found.</div>
+    <a href="albums">Back to albums</a>
+}
+else if (albumLayout is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="layout-editor">
+        <div class="layout-editor-header mb-3">
+            <a class="text-decoration-none" href="albums/@album.Id">&larr; Back to album</a>
+            <div class="d-flex justify-content-between align-items-center mt-2 flex-wrap gap-2">
+                <div>
+                    <h1 class="h3 mb-0">Edit album layout</h1>
+                    <p class="text-muted mb-0">@album.Name</p>
+                </div>
+                <div class="d-flex gap-2">
+                    @if (layoutSaved)
+                    {
+                        <a class="btn btn-outline-secondary" href="albums/@album.Id/layout/view">View album</a>
+                    }
+                    <button class="btn btn-primary" type="button" @onclick="SaveAsync" disabled="@isSaving">
+                        @(isSaving ? "Saving..." : "Save layout")
+                    </button>
+                </div>
+            </div>
+            @if (!string.IsNullOrWhiteSpace(statusMessage))
+            {
+                <div class="alert alert-success mt-2 mb-0 py-2">@statusMessage</div>
+            }
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="alert alert-danger mt-2 mb-0 py-2">@errorMessage</div>
+            }
+        </div>
+
+        <div class="layout-editor-body">
+            <aside class="photo-library">
+                <h2 class="h6">Photo library</h2>
+                @if (photos.Count == 0)
+                {
+                    <p class="text-muted small">No photos uploaded yet. <a href="albums/@album.Id/photos">Upload photos</a>.</p>
+                }
+                else
+                {
+                    <div class="photo-library-grid">
+                        @foreach (var photo in photos)
+                        {
+                            <div class="photo-library-item draggable"
+                                 draggable="true"
+                                 @ondragstart="() => HandleLibraryDragStart(photo.Id)">
+                                <img src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" />
+                                <span class="photo-library-name" title="@photo.OriginalFileName">@photo.OriginalFileName</span>
+                            </div>
+                        }
+                    </div>
+                }
+            </aside>
+
+            <main class="page-editor">
+                <div class="page-tabs d-flex flex-wrap align-items-center gap-2 mb-3">
+                    <button type="button"
+                            class="btn btn-sm @(selectedPageNumber == 0 ? "btn-primary" : "btn-outline-secondary")"
+                            @onclick="() => SelectPage(0)">
+                        Title page
+                    </button>
+                    @foreach (var albumPage in albumLayout.Pages.OrderBy(p => p.Number))
+                    {
+                        <button type="button"
+                                class="btn btn-sm @(selectedPageNumber == albumPage.Number ? "btn-primary" : "btn-outline-secondary")"
+                                @onclick="() => SelectPage(albumPage.Number)">
+                            Page @albumPage.Number
+                        </button>
+                    }
+                    <button type="button" class="btn btn-sm btn-outline-primary" @onclick="AddPage">+ Add page</button>
+                </div>
+
+                @if (selectedPageNumber == 0)
+                {
+                    <div class="mb-3">
+                        <label class="form-label" for="layout-title">Title</label>
+                        <input id="layout-title" class="form-control" @bind="albumLayout.Title" />
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label" for="layout-subtitle">Subtitle</label>
+                        <textarea id="layout-subtitle" class="form-control" rows="3" @bind="albumLayout.Subtitle"></textarea>
+                    </div>
+                    <LayoutPageRenderer AlbumId="@album.Id"
+                                        IsTitlePage="true"
+                                        PageNumber="0"
+                                                     Title="@(albumLayout.Title)"
+                                                     Subtitle="@(albumLayout.Subtitle)"
+                                                     CoverPhotoId="@(albumLayout.CoverPhotoId)"
+                                        PhotoLookup="@photoLookup"
+                                        Editable="true"
+                                        OnPhotoDragStarted="HandleDragStarted"
+                                        OnPhotoDropped="HandleDropped"
+                                        OnPhotoRemoved="HandleRemoved" />
+                }
+                else if (selectedPage is not null)
+                {
+                    <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
+                        <div class="d-flex align-items-center gap-2">
+                            <label class="form-label mb-0" for="template-select">Template</label>
+                            <select id="template-select" class="form-select form-select-sm" style="width: auto;"
+                                    value="@selectedPage.TemplateId"
+                                    @onchange="OnTemplateChanged">
+                                @foreach (var template in LayoutTemplates.All)
+                                {
+                                    <option value="@template.Id">@template.Name</option>
+                                }
+                            </select>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => MovePage(selectedPage.Number, -1)" disabled="@(selectedPage.Number == 1)">↑</button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => MovePage(selectedPage.Number, 1)" disabled="@(selectedPage.Number == albumLayout.Pages.Count)">↓</button>
+                            <button type="button" class="btn btn-sm btn-outline-danger" @onclick="() => DeletePage(selectedPage.Number)">Delete page</button>
+                        </div>
+                    </div>
+                    <LayoutPageRenderer AlbumId="@album.Id"
+                                        TemplateId="@selectedPage.TemplateId"
+                                        PageNumber="@selectedPage.Number"
+                                        Photos="@selectedPage.Photos"
+                                        PhotoLookup="@photoLookup"
+                                        Editable="true"
+                                        OnPhotoDragStarted="HandleDragStarted"
+                                        OnPhotoDropped="HandleDropped"
+                                        OnPhotoRemoved="HandleRemoved" />
+                }
+            </main>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter]
+    public string Id { get; set; } = string.Empty;
+
+    private Album? album;
+    private ViewableAlbumLayout? albumLayout;
+    private IReadOnlyList<AlbumPhoto> photos = [];
+    private Dictionary<string, AlbumPhoto> photoLookup = new(StringComparer.OrdinalIgnoreCase);
+    private int selectedPageNumber;
+    private LayoutPage? selectedPage;
+    private string? draggedPhotoId;
+    private int? draggedFromSlot;
+    private bool draggedFromTitlePage;
+    private int? draggedFromPageNumber;
+    private bool isSaving;
+    private bool layoutSaved;
+    private string? statusMessage;
+    private string? errorMessage;
+
+    protected override void OnInitialized()
+    {
+        album = Catalog.Get(Id);
+        if (album is null)
+            return;
+
+        photos = Catalog.ListPhotos(Id);
+        photoLookup = photos.ToDictionary(photo => photo.Id, StringComparer.OrdinalIgnoreCase);
+        albumLayout = Catalog.GetLayout(Id);
+        layoutSaved = albumLayout is not null;
+
+        if (albumLayout is null)
+        {
+            albumLayout = new ViewableAlbumLayout
+            {
+                AlbumId = Id,
+                Title = album.Name,
+                Subtitle = album.FullDescription,
+            };
+        }
+
+        SelectPage(0);
+    }
+
+    private void SelectPage(int pageNumber)
+    {
+        selectedPageNumber = pageNumber;
+        selectedPage = pageNumber == 0
+            ? null
+            : albumLayout!.Pages.FirstOrDefault(page => page.Number == pageNumber);
+    }
+
+    private void AddPage()
+    {
+        var nextNumber = albumLayout!.Pages.Count == 0 ? 1 : albumLayout.Pages.Max(page => page.Number) + 1;
+        var page = new LayoutPage
+        {
+            Number = nextNumber,
+            TemplateId = LayoutTemplateIds.OneBig,
+            Photos = LayoutTemplates.CreateEmptySlots(LayoutTemplateIds.OneBig),
+        };
+        albumLayout.Pages.Add(page);
+        SelectPage(nextNumber);
+    }
+
+    private void DeletePage(int pageNumber)
+    {
+        albumLayout!.Pages.RemoveAll(page => page.Number == pageNumber);
+        RenumberPages();
+        SelectPage(albumLayout.Pages.Count == 0 ? 0 : albumLayout.Pages.Min(page => page.Number));
+    }
+
+    private void MovePage(int pageNumber, int direction)
+    {
+        var pages = albumLayout!.Pages.OrderBy(page => page.Number).ToList();
+        var index = pages.FindIndex(page => page.Number == pageNumber);
+        var targetIndex = index + direction;
+        if (index < 0 || targetIndex < 0 || targetIndex >= pages.Count)
+            return;
+
+        (pages[index], pages[targetIndex]) = (pages[targetIndex], pages[index]);
+        RenumberPagesFrom(pages);
+        SelectPage(selectedPageNumber);
+    }
+
+    private void RenumberPages()
+    {
+        RenumberPagesFrom(albumLayout!.Pages.OrderBy(page => page.Number).ToList());
+    }
+
+    private void RenumberPagesFrom(List<LayoutPage> pages)
+    {
+        for (var i = 0; i < pages.Count; i++)
+            pages[i].Number = i + 1;
+
+        albumLayout!.Pages = pages;
+    }
+
+    private void OnTemplateChanged(ChangeEventArgs args)
+    {
+        if (selectedPage is null || args.Value is not string templateId || templateId == selectedPage.TemplateId)
+            return;
+
+        selectedPage.TemplateId = templateId;
+        selectedPage.Photos = LayoutTemplates.MigratePhotos(templateId, selectedPage.Photos);
+    }
+
+    private void HandleLibraryDragStart(string photoId)
+    {
+        draggedPhotoId = photoId;
+        draggedFromSlot = null;
+        draggedFromTitlePage = false;
+        draggedFromPageNumber = null;
+    }
+
+    private Task HandleDragStarted(LayoutDragStartEventArgs args)
+    {
+        draggedPhotoId = args.PhotoId;
+        draggedFromSlot = args.FromSlotNumber;
+        draggedFromTitlePage = args.IsTitlePage;
+        draggedFromPageNumber = args.FromPageNumber;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleDropped(LayoutDropEventArgs args)
+    {
+        if (string.IsNullOrWhiteSpace(draggedPhotoId))
+            return Task.CompletedTask;
+
+        if (args.IsTitlePage)
+        {
+            if (draggedFromTitlePage && draggedFromSlot == 0)
+            {
+                ClearDragState();
+                return Task.CompletedTask;
+            }
+
+            albumLayout!.CoverPhotoId = draggedPhotoId;
+            if (draggedFromPageNumber is int pageNumber && pageNumber > 0)
+                ClearSlotOnPage(pageNumber, draggedFromSlot!.Value);
+
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+
+        if (selectedPage is null)
+        {
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+
+        var targetSlot = selectedPage.Photos.FirstOrDefault(slot => slot.Number == args.SlotNumber);
+        if (targetSlot is null)
+        {
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+
+        if (draggedFromTitlePage)
+        {
+            albumLayout!.CoverPhotoId = null;
+            targetSlot.PhotoId = draggedPhotoId;
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+
+        if (draggedFromPageNumber is int fromPage && fromPage != selectedPage.Number)
+        {
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+
+        if (draggedFromSlot is null)
+        {
+            targetSlot.PhotoId = draggedPhotoId;
+        }
+        else if (draggedFromSlot == args.SlotNumber)
+        {
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+        else
+        {
+            var sourceSlot = selectedPage.Photos.FirstOrDefault(slot => slot.Number == draggedFromSlot.Value);
+            if (sourceSlot is null)
+            {
+                ClearDragState();
+                return Task.CompletedTask;
+            }
+
+            (sourceSlot.PhotoId, targetSlot.PhotoId) = (targetSlot.PhotoId, sourceSlot.PhotoId);
+        }
+
+        ClearDragState();
+        return Task.CompletedTask;
+    }
+
+    private Task HandleRemoved(LayoutRemoveEventArgs args)
+    {
+        if (args.IsTitlePage)
+        {
+            albumLayout!.CoverPhotoId = null;
+            return Task.CompletedTask;
+        }
+
+        if (selectedPage is null)
+            return Task.CompletedTask;
+
+        ClearSlot(selectedPage, args.SlotNumber);
+        return Task.CompletedTask;
+    }
+
+    private static void ClearSlot(LayoutPage page, int slotNumber)
+    {
+        var slot = page.Photos.FirstOrDefault(item => item.Number == slotNumber);
+        if (slot is not null)
+            slot.PhotoId = null;
+    }
+
+    private void ClearSlotOnPage(int pageNumber, int slotNumber)
+    {
+        var page = albumLayout!.Pages.FirstOrDefault(item => item.Number == pageNumber);
+        if (page is not null)
+            ClearSlot(page, slotNumber);
+    }
+
+    private void ClearDragState()
+    {
+        draggedPhotoId = null;
+        draggedFromSlot = null;
+        draggedFromTitlePage = false;
+        draggedFromPageNumber = null;
+    }
+
+    private Task SaveAsync()
+    {
+        if (albumLayout is null || album is null)
+            return Task.CompletedTask;
+
+        isSaving = true;
+        errorMessage = null;
+        statusMessage = null;
+        try
+        {
+            Catalog.SaveLayout(albumLayout);
+            layoutSaved = true;
+            statusMessage = "Layout saved.";
+        }
+        catch (Exception exception)
+        {
+            errorMessage = $"Save failed: {exception.Message}";
+        }
+        finally
+        {
+            isSaving = false;
+        }
+
+        return Task.CompletedTask;
+    }
+}

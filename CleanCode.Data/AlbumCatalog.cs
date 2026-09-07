@@ -33,6 +33,7 @@ public sealed class AlbumCatalog : IDisposable
     private readonly LiteDatabase _database;
     private readonly ILiteCollection<Album> _albums;
     private readonly ILiteCollection<AlbumPhoto> _photos;
+    private readonly ILiteCollection<ViewableAlbumLayout> _layouts;
 
     public AlbumCatalog(string databasePath)
     {
@@ -43,9 +44,11 @@ public sealed class AlbumCatalog : IDisposable
         _database = new LiteDatabase(databasePath);
         _albums = _database.GetCollection<Album>("albums");
         _photos = _database.GetCollection<AlbumPhoto>("albumPhotos");
+        _layouts = _database.GetCollection<ViewableAlbumLayout>("viewableAlbumLayouts");
         _albums.EnsureIndex(album => album.ImageFolderName, unique: true);
         _albums.EnsureIndex(album => album.Name);
         _photos.EnsureIndex(photo => photo.AlbumId);
+        _layouts.EnsureIndex(layout => layout.AlbumId, unique: true);
     }
 
     public IReadOnlyList<Album> List()
@@ -89,6 +92,7 @@ public sealed class AlbumCatalog : IDisposable
     public bool Delete(string id)
     {
         _photos.DeleteMany(photo => photo.AlbumId == id);
+        _layouts.Delete(id);
         return _albums.Delete(id);
     }
 
@@ -137,6 +141,32 @@ public sealed class AlbumCatalog : IDisposable
 
         album.UpdatedUtc = DateTime.UtcNow;
         _albums.Update(album);
+    }
+
+    public ViewableAlbumLayout? GetLayout(string albumId)
+    {
+        return _layouts.FindById(albumId);
+    }
+
+    public bool HasLayout(string albumId)
+    {
+        return _layouts.Exists(layout => layout.AlbumId == albumId);
+    }
+
+    public void SaveLayout(ViewableAlbumLayout layout)
+    {
+        ArgumentNullException.ThrowIfNull(layout);
+        if (string.IsNullOrWhiteSpace(layout.AlbumId))
+            throw new ArgumentException("AlbumId is required.", nameof(layout));
+
+        layout.UpdatedUtc = DateTime.UtcNow;
+        _layouts.Upsert(layout);
+        Touch(layout.AlbumId);
+    }
+
+    public bool DeleteLayout(string albumId)
+    {
+        return _layouts.Delete(albumId);
     }
 
     public void Dispose()
