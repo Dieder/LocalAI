@@ -1,0 +1,77 @@
+@using CleanCode.Data
+@using Microsoft.AspNetCore.Components
+@using Microsoft.AspNetCore.Components.Web
+
+<div class="template-selector">
+    <div class="templates-grid">
+        @if (Templates is null || Templates.Count == 0)
+        {
+            <div class="no-templates">No templates available</div>
+        }
+        else
+        {
+            @foreach (var template in Templates)
+            {
+                var isSelected = template.Id == SelectedTemplateId;
+                <div class="template-card @(isSelected ? "selected" : "")"
+                     role="button"
+                     tabindex="0"
+                     @onclick="() => SelectTemplate(template.Id)"
+                     @onkeypress="(e) => OnKeyPress(e, template.Id)">
+
+                    <svg viewBox="0 0 100 100" class="template-preview-svg" role="img" aria-label="@template.Name">
+                        @foreach (var r in template.Rectangles.OrderBy(r => r.Order))
+                        {
+                            var rect = GetRectForSize(r.Size);
+                            <rect x="@rect.X" y="@rect.Y" width="@rect.Width" height="@rect.Height" rx="2" fill="#B8D8F8" stroke="#555" stroke-width="1" />
+                        }
+                    </svg>
+
+                    <div class="template-name">@template.Name</div>
+                </div>
+            }
+        }
+    </div>
+</div>
+
+@code {
+    [Parameter]
+    public List<LayoutTemplate>? Templates { get; set; }
+
+    [Parameter]
+    public string? SelectedTemplateId { get; set; }
+
+    [Parameter]
+    public EventCallback<string> SelectedTemplateIdChanged { get; set; }
+
+    private async Task SelectTemplate(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id) || id == SelectedTemplateId)
+            return;
+
+        SelectedTemplateId = id;
+        if (SelectedTemplateIdChanged.HasDelegate)
+            await SelectedTemplateIdChanged.InvokeAsync(id);
+    }
+
+    private async Task OnKeyPress(KeyboardEventArgs e, string id)
+    {
+        if (e.Key == "Enter" || e.Key == " ")
+            await SelectTemplate(id);
+    }
+
+    private (double X, double Y, double Width, double Height) GetRectForSize(string size)
+    {
+        return size switch
+        {
+            "full" => (5, 5, 90, 90),
+            "panorama" => (5, 6, 90, 38),
+            "landscape" => (5, 5, 90, 42),
+            "portrait" => (5, 5, 46, 90),
+            "portrait-tall" => (5, 5, 50, 90),
+            "small" => (5, 5, 28, 28),
+            "equal" => (5, 5, 42, 42),
+            _ => (5, 5, 90, 90)
+        };
+    }
+}

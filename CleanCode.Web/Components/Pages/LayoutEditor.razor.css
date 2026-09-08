@@ -16,6 +16,19 @@
     background: #f8f9fa;
 }
 
+.photo-library-group {
+    margin-bottom: 0.75rem;
+}
+
+.photo-library-date {
+    font-size: 0.72rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
 .photo-library-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

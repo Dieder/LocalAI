@@ -23,6 +23,11 @@ public sealed class AlbumPhoto
     public string ContentType { get; set; } = "application/octet-stream";
     public long Length { get; set; }
     public DateTime UploadedUtc { get; set; } = DateTime.UtcNow;
+    public DateTime? DateTakenUtc { get; set; }
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+    public string? CameraMake { get; set; }
+    public string? CameraModel { get; set; }
     public string Description { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = [];
     public DateTime? IndexedUtc { get; set; }
@@ -99,13 +104,29 @@ public sealed class AlbumCatalog : IDisposable
     public IReadOnlyList<AlbumPhoto> ListPhotos(string albumId)
     {
         var photos = _photos.Find(photo => photo.AlbumId == albumId)
-            .OrderByDescending(photo => photo.UploadedUtc)
+            .OrderByDescending(photo => photo.DateTakenUtc.HasValue
+                ? photo.DateTakenUtc.Value.ToLocalTime()
+                : photo.UploadedUtc.ToLocalTime())
             .ToList();
 
         foreach (var photo in photos)
             NormalizeLegacyAnalysis(photo);
 
         return photos;
+    }
+
+    public static DateTime GetDisplayDate(AlbumPhoto photo)
+    {
+        return photo.DateTakenUtc.HasValue
+            ? photo.DateTakenUtc.Value.ToLocalTime()
+            : photo.UploadedUtc.ToLocalTime();
+    }
+
+    public static DateTime GetDisplayDate(DateTime? dateTakenUtc, DateTime uploadedUtc)
+    {
+        return dateTakenUtc.HasValue
+            ? dateTakenUtc.Value.ToLocalTime()
+            : uploadedUtc.ToLocalTime();
     }
 
     public void AddPhoto(AlbumPhoto photo)

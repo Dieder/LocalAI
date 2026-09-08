@@ -36,4 +36,5 @@ public static class LayoutTemplateIds
     public const string FourPortrait = "FourPortrait";
     public const string PortraitFourSmall = "PortraitFourSmall";
     public const string OnePortrait = "OnePortrait";
+    public const string NineSmall = "NineSmall";
 }

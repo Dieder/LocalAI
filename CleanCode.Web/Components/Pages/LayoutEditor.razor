@@ -4,6 +4,7 @@
 @using CleanCode.Web.Components.Layout
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
+@inject HttpClient Http
 
 <PageTitle>Edit layout - @(album?.Name ?? "Album")</PageTitle>
 
@@ -55,17 +56,23 @@ else
                 }
                 else
                 {
-                    <div class="photo-library-grid">
-                        @foreach (var photo in photos)
-                        {
-                            <div class="photo-library-item draggable"
-                                 draggable="true"
-                                 @ondragstart="() => HandleLibraryDragStart(photo.Id)">
-                                <img src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" />
-                                <span class="photo-library-name" title="@photo.OriginalFileName">@photo.OriginalFileName</span>
+                    @foreach (var group in PhotoGroups)
+                    {
+                        <div class="photo-library-group mb-3">
+                            <div class="photo-library-date">@group.Header</div>
+                            <div class="photo-library-grid">
+                                @foreach (var photo in group.Photos)
+                                {
+                                    <div class="photo-library-item draggable"
+                                         draggable="true"
+                                         @ondragstart="() => HandleLibraryDragStart(photo.Id)">
+                                        <img src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" />
+                                        <span class="photo-library-name" title="@photo.OriginalFileName">@photo.OriginalFileName</span>
+                                    </div>
+                                }
                             </div>
-                        }
-                    </div>
+                        </div>
+                    }
                 }
             </aside>
 
@@ -114,14 +121,14 @@ else
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
                         <div class="d-flex align-items-center gap-2">
                             <label class="form-label mb-0" for="template-select">Template</label>
-                            <select id="template-select" class="form-select form-select-sm" style="width: auto;"
-                                    value="@selectedPage.TemplateId"
-                                    @onchange="OnTemplateChanged">
-                                @foreach (var template in LayoutTemplates.All)
-                                {
-                                    <option value="@template.Id">@template.Name</option>
-                                }
-                            </select>
+                            @if (layoutTemplates == null)
+                            {
+                                <div>Loading templates...</div>
+                            }
+                            else
+                            {
+                                <LayoutTemplateSelector Templates="layoutTemplates" SelectedTemplateId="selectedPage.TemplateId" SelectedTemplateIdChanged="OnTemplateSelected" />
+                            }
                         </div>
                         <div class="d-flex gap-2">
                             <button type="button" class="btn btn-sm btn-outline-secondary" @onclick="() => MovePage(selectedPage.Number, -1)" disabled="@(selectedPage.Number == 1)">↑</button>
@@ -162,8 +169,29 @@ else
     private bool layoutSaved;
     private string? statusMessage;
     private string? errorMessage;
+    private IEnumerable<PhotoDateGroup> PhotoGroups =>
+        photos
+            .GroupBy(GetPhotoGroupDate)
+            .OrderByDescending(group => group.Key)
+            .Select(group => new PhotoDateGroup(
+                group.Key,
+                group.Key.ToString("dddd d MMMM yyyy"),
+                group.OrderByDescending(GetPhotoSortDate).ToList()));
 
-    protected override void OnInitialized()
+    private static DateTime GetPhotoGroupDate(AlbumPhoto photo)
+    {
+        return AlbumCatalog.GetDisplayDate(photo.DateTakenUtc, photo.UploadedUtc).Date;
+    }
+
+    private static DateTime GetPhotoSortDate(AlbumPhoto photo)
+    {
+        return AlbumCatalog.GetDisplayDate(photo.DateTakenUtc, photo.UploadedUtc);
+    }
+
+    private sealed record PhotoDateGroup(DateTime Date, string Header, List<AlbumPhoto> Photos);
+    private List<CleanCode.Data.LayoutTemplate>? layoutTemplates;
+
+    protected override async Task OnInitializedAsync()
     {
         album = Catalog.Get(Id);
         if (album is null)
@@ -182,6 +210,17 @@ else
                 Title = album.Name,
                 Subtitle = album.FullDescription,
             };
+        }
+
+        // Load templates from wwwroot/data/layout-templates.json if present
+        try
+        {
+            layoutTemplates = await Http.GetFromJsonAsync<List<CleanCode.Data.LayoutTemplate>>("/data/layout-templates.json")
+                             ?? LayoutTemplates.All.ToList();
+        }
+        catch
+        {
+            layoutTemplates = LayoutTemplates.All.ToList();
         }
 
         SelectPage(0);
@@ -241,9 +280,9 @@ else
         albumLayout!.Pages = pages;
     }
 
-    private void OnTemplateChanged(ChangeEventArgs args)
+    private void OnTemplateSelected(string templateId)
     {
-        if (selectedPage is null || args.Value is not string templateId || templateId == selectedPage.TemplateId)
+        if (selectedPage is null || templateId == selectedPage.TemplateId)
             return;
 
         selectedPage.TemplateId = templateId;
