@@ -1,6 +1,6 @@
 @page "/albums/{Id}/layout/edit"
 @rendermode InteractiveServer
-@using CleanCode.Data
+@using PhotoIt.Data
 @using CleanCode.Web.Components.Layout
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
@@ -189,7 +189,7 @@ else
     }
 
     private sealed record PhotoDateGroup(DateTime Date, string Header, List<AlbumPhoto> Photos);
-    private List<CleanCode.Data.LayoutTemplate>? layoutTemplates;
+    private List<PhotoIt.Data.LayoutTemplate>? layoutTemplates;
 
     protected override async Task OnInitializedAsync()
     {
@@ -215,7 +215,7 @@ else
         // Load templates from wwwroot/data/layout-templates.json if present
         try
         {
-            layoutTemplates = await Http.GetFromJsonAsync<List<CleanCode.Data.LayoutTemplate>>("/data/layout-templates.json")
+            layoutTemplates = await Http.GetFromJsonAsync<List<PhotoIt.Data.LayoutTemplate>>("/data/layout-templates.json")
                              ?? LayoutTemplates.All.ToList();
         }
         catch

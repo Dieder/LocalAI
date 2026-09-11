@@ -1,5 +1,5 @@
 using AiFoundryLocal;
-using CleanCode.Data;
+using PhotoIt.Data;
 
 namespace CleanCode.AiOrchestration;
 

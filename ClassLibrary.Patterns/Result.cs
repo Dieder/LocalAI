@@ -1,4 +1,4 @@
-﻿namespace ClassLibrary.Patterns
+﻿namespace CleanCode.Patterns
 {
 
     public sealed class Result<T>

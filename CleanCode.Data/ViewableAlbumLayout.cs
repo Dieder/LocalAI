@@ -1,6 +1,6 @@
 using LiteDB;
 
-namespace CleanCode.Data;
+namespace PhotoIt.Data;
 
 public sealed class ViewableAlbumLayout
 {

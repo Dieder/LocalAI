@@ -3,7 +3,7 @@ using Azure.Storage;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Models;
 
-namespace CleanCode.Data;
+namespace PhotoIt.Data;
 
 public sealed record AzurePhotoStorageOptions(
     string AccountName,

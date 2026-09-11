@@ -1,6 +1,7 @@
+using PhotoIt.Data;
 using LiteDB;
 
-namespace CleanCode.Data;
+namespace PhotoIt.Data;
 
 public class Album
 {

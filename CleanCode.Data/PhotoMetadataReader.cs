@@ -2,7 +2,7 @@ using System.Globalization;
 using MetadataExtractor;
 using MetadataExtractor.Formats.Exif;
 
-namespace CleanCode.Data;
+namespace PhotoIt.Data;
 
 public static class PhotoMetadataReader
 {

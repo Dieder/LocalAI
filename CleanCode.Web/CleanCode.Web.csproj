@@ -19,8 +19,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CleanCode.ServiceDefaults\CleanCode.ServiceDefaults.csproj" />
-    <ProjectReference Include="..\CleanCode.Data\CleanCode.Data.csproj" />
+    <ProjectReference Include="..\CleanCode.ServiceDefaults\PhotoIt.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\CleanCode.Data\PhotoIt.Data.csproj" />
     <ProjectReference Include="..\AiFoundryLocal\AiFoundryLocal.csproj" />
     <ProjectReference Include="..\CleanCode.AiOrgestation\CleanCode.AiOrchestration.csproj" />
   </ItemGroup>

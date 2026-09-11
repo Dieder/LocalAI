@@ -1,4 +1,4 @@
-namespace CleanCode.Data;
+namespace PhotoIt.Data;
 
 public sealed record LayoutRectangle(int Order, string Size, int Number);
 

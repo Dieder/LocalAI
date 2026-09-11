@@ -1,6 +1,6 @@
 using CleanCode.Web;
 using CleanCode.Web.Components;
-using CleanCode.Data;
+using PhotoIt.Data;
 using AiFoundryLocal;
 using CleanCode.AiOrchestration;
 using CleanCode.Web.Components.Account;
@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using CleanCode.Web.Data;
 using Microsoft.EntityFrameworkCore;
+using PhotoIt.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("AlbumWebContext") ?? throw new InvalidOperationException("Connection string 'AlbumWebContext' not found.");

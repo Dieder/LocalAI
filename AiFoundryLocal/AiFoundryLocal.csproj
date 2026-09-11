@@ -7,7 +7,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\ClassLibrary.Patterns\ClassLibrary.Patterns.csproj" />
+    <ProjectReference Include="..\ClassLibrary.Patterns\CleanCode.Patterns.csproj" />
     <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.17.1" />
     <PackageReference Include="Microsoft.AI.Foundry.Local" Version="2.0.1" />
     <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />

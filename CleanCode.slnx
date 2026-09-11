@@ -1,10 +1,10 @@
 <Solution>
   <Project Path="AiFoundryLocal/AiFoundryLocal.csproj" />
-  <Project Path="ClassLibrary.Patterns/ClassLibrary.Patterns.csproj" />
+  <Project Path="ClassLibrary.Patterns/CleanCode.Patterns.csproj" />
   <Project Path="CleanCode.AiOrgestation/CleanCode.AiOrchestration.csproj" />
   <Project Path="CleanCode.ApiService/CleanCode.ApiService.csproj" />
-  <Project Path="CleanCode.AppHost/CleanCode.AppHost.csproj" />
-  <Project Path="CleanCode.Data/CleanCode.Data.csproj" Id="2fd31c1a-1de1-4d0e-afd2-71da1b0212f7" />
-  <Project Path="CleanCode.ServiceDefaults/CleanCode.ServiceDefaults.csproj" />
+  <Project Path="CleanCode.AppHost/PhotoIt.AppHost.csproj" />
+  <Project Path="CleanCode.Data/PhotoIt.Data.csproj" Id="2fd31c1a-1de1-4d0e-afd2-71da1b0212f7" />
+  <Project Path="CleanCode.ServiceDefaults/PhotoIt.ServiceDefaults.csproj" />
   <Project Path="CleanCode.Web/CleanCode.Web.csproj" />
 </Solution>

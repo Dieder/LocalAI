@@ -1,5 +1,5 @@
 using System.ComponentModel.DataAnnotations;
-using CleanCode.Data;
+using PhotoIt.Data;
 
 namespace CleanCode.Web.Components.Pages;
 
