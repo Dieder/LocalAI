@@ -1,4 +1,3 @@
-using CleanCode.Web;
 using CleanCode.Web.Components;
 using PhotoIt.Data;
 using AiFoundryLocal;
@@ -8,7 +7,6 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using CleanCode.Web.Data;
 using Microsoft.EntityFrameworkCore;
-using PhotoIt.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("AlbumWebContext") ?? throw new InvalidOperationException("Connection string 'AlbumWebContext' not found.");
@@ -130,5 +128,13 @@ app.MapRazorComponents<App>()
 app.MapDefaultEndpoints();
 
 app.MapAdditionalIdentityEndpoints();;
+
+using (var scope = app.Services.CreateScope())
+{
+    var db = scope.ServiceProvider.GetRequiredService<AlbumWebContext>();
+
+    db.Database.Migrate();
+}
+
 
 app.Run();
