@@ -8,9 +8,9 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ClassLibrary.Patterns\ClassLibrary.Patterns.csproj" />
-    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.7.0" />
-    <PackageReference Include="Microsoft.AI.Foundry.Local" Version="1.2.4" />
-    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.23.2" />
+    <PackageReference Include="Magick.NET-Q16-AnyCPU" Version="14.17.1" />
+    <PackageReference Include="Microsoft.AI.Foundry.Local" Version="2.0.1" />
+    <PackageReference Include="Microsoft.ML.OnnxRuntime" Version="1.30.0" />
     <PackageReference Include="Microsoft.ML.OnnxRuntimeGenAI.Foundry" Version="0.15.2" />
   </ItemGroup>
 

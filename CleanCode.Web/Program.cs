@@ -3,8 +3,16 @@ using CleanCode.Web.Components;
 using CleanCode.Data;
 using AiFoundryLocal;
 using CleanCode.AiOrchestration;
+using CleanCode.Web.Components.Account;
+using Microsoft.AspNetCore.Components.Authorization;
+using Microsoft.AspNetCore.Identity;
+using CleanCode.Web.Data;
+using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
+var connectionString = builder.Configuration.GetConnectionString("AlbumWebContext") ?? throw new InvalidOperationException("Connection string 'AlbumWebContext' not found.");
+
+builder.Services.AddDbContext<AlbumWebContext>(options => options.UseSqlite(connectionString));
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
@@ -52,7 +60,37 @@ builder.Services.AddSingleton<FileIndexer>(_ => new FileIndexer(
 builder.Services.AddSingleton<PhotoVisionOrchestrator>();
 builder.Services.AddSingleton<PhotoIndexQueue>();
 builder.Services.AddHostedService<PhotoIndexBackgroundService>();
+var googleClientId = Environment.GetEnvironmentVariable("Google:ClientId");
+var googleClientSecret = Environment.GetEnvironmentVariable("Google:ClientSecret");
+builder.Services.AddAuthentication()
+    .AddGoogle(googleOptions => {
+        googleOptions.ClientId = "{googleClientId}";
+        googleOptions.ClientSecret = "{googleClientSecret}";
+    });
 
+builder.Services.AddCascadingAuthenticationState();
+
+builder.Services.AddScoped<IdentityRedirectManager>();
+
+builder.Services.AddScoped<AuthenticationStateProvider, IdentityRevalidatingAuthenticationStateProvider>();
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultScheme = IdentityConstants.ApplicationScheme;
+        options.DefaultSignInScheme = IdentityConstants.ExternalScheme;
+    })
+    .AddIdentityCookies();
+
+builder.Services.AddIdentityCore<ApplicationUser>(options =>
+    {
+        options.SignIn.RequireConfirmedAccount = true;
+        options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
+    })
+    .AddEntityFrameworkStores<AlbumWebContext>()
+    .AddSignInManager()
+    .AddDefaultTokenProviders();
+
+builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
@@ -89,5 +127,7 @@ app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
 app.MapDefaultEndpoints();
+
+app.MapAdditionalIdentityEndpoints();;
 
 app.Run();
