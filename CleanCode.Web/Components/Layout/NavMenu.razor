@@ -14,27 +14,42 @@
 <div class="nav-scrollable" onclick="document.querySelector('.navbar-toggler').click()">
     <nav class="nav flex-column">
         <div class="nav-kicker px-3">Workspace</div>
+        <AuthorizeView>
+            <NotAuthorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="/Account/Login" Match="NavLinkMatch.All">
+                        <span class="nav-icon bi bi-house-door-fill" aria-hidden="true"></span>
+                        <span>Login</span>
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="albums">
+                        <span class="nav-icon bi bi-collection" aria-hidden="true"></span>
+                        <span>All albums</span>
+                    </NavLink>
+                </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="/Account/Login" Match="NavLinkMatch.All">
-                <span class="nav-icon bi bi-house-door-fill" aria-hidden="true"></span>
-                <span>Login</span>
-            </NavLink>
-        </div>
+       
+            </NotAuthorized>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="albums">
-                <span class="nav-icon bi bi-collection" aria-hidden="true"></span>
-                <span>All albums</span>
-            </NavLink>
-        </div>
+            
+            <Authorized>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="albums">
+                        <span class="nav-icon bi bi-collection" aria-hidden="true"></span>
+                        <span>All albums</span>
+                    </NavLink>
+                </div>
 
-        <div class="nav-item px-3">
-            <NavLink class="nav-link nav-link-accent" href="albums/create">
-                <span class="nav-icon bi bi-plus-circle" aria-hidden="true"></span>
-                <span>Create album</span>
-            </NavLink>
-        </div>
+       
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link nav-link-accent" href="albums/create">
+                        <span class="nav-icon bi bi-plus-circle" aria-hidden="true"></span>
+                        <span>Create album</span>
+                    </NavLink>
+                </div>
+            </Authorized>
+        </AuthorizeView>
 
         <div class="nav-kicker px-3 mt-4">Inside an album</div>
         <div class="nav-item px-3">

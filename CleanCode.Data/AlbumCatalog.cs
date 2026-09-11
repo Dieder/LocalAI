@@ -12,6 +12,8 @@ public class Album
     public string ImageFolderName { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string FullDescription { get; set; } = string.Empty;
+
+    public string Intro { get; set; } = string.Empty;
 }
 
 public sealed class AlbumPhoto
