@@ -3,6 +3,8 @@
 @using PhotoIt.Data
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using CleanCode.Web.Components
 @using Microsoft.AspNetCore.Authorization;
 @attribute [Authorize]
 <PageTitle>Edit album</PageTitle>
@@ -27,25 +29,32 @@ else
 
     private AlbumFormModel? model;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         var album = Catalog.Get(Id);
-        if (album is not null)
-        {
-            model = new AlbumFormModel
-            {
-                Id = album.Id,
-                CreatedUtc = album.CreatedUtc,
-                UpdatedUtc = album.UpdatedUtc,
-                Intro = album.Intro,
-                Name = album.Name,
-                ImageFolderName = album.ImageFolderName,
-                FullDescription = album.FullDescription,
-            };
-        }
-        else
+        if (album is null)
         {
             Navigation.NavigateTo("albums");
+            return;
         }
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var currentUserId = CurrentUserHelper.GetUserId(authState.User);
+        if (currentUserId != album.UserId)
+        {
+            Navigation.NavigateTo($"albums/{album.Id}");
+            return;
+        }
+
+        model = new AlbumFormModel
+        {
+            Id = album.Id,
+            CreatedUtc = album.CreatedUtc,
+            UpdatedUtc = album.UpdatedUtc,
+            Intro = album.Intro,
+            Name = album.Name,
+            ImageFolderName = album.ImageFolderName,
+            FullDescription = album.FullDescription,
+        };
     }
 }

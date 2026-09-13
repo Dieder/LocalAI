@@ -3,6 +3,8 @@
 @using PhotoIt.Data
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using CleanCode.Web.Components
 
 <PageTitle>@(album?.Name ?? "Album")</PageTitle>
 
@@ -20,16 +22,19 @@ else
             <h1>@album.Name</h1>
         </div>
         <div class="d-flex gap-2 flex-wrap">
-            <a class="btn btn-outline-secondary" href="albums/@album.Id/photos">Manage photos</a>
-            <a class="btn btn-outline-primary" href="albums/@album.Id/layout/edit">
-                @(hasLayout ? "Edit layout" : "Create layout")
-            </a>
+            @if (canEdit)
+            {
+                <a class="btn btn-outline-secondary" href="albums/@album.Id/photos">Manage photos</a>
+                <a class="btn btn-outline-primary" href="albums/@album.Id/layout/edit">
+                    @(hasLayout ? "Edit layout" : "Create layout")
+                </a>
+                <a class="btn btn-outline-primary" href="albums/@album.Id/edit">Edit</a>
+                <button class="btn btn-outline-danger" @onclick="DeleteAsync">Delete</button>
+            }
             @if (hasLayout)
             {
                 <a class="btn btn-primary" href="albums/@album.Id/layout/view">View album</a>
             }
-            <a class="btn btn-outline-primary" href="albums/@album.Id/edit">Edit</a>
-            <button class="btn btn-outline-danger" @onclick="DeleteAsync">Delete</button>
         </div>
     </div>
 
@@ -57,11 +62,15 @@ else
 
     private Album? album;
     private bool hasLayout;
+    private bool canEdit;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         album = Catalog.Get(Id);
         hasLayout = album is not null && Catalog.HasLayout(Id);
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        canEdit = CurrentUserHelper.GetUserId(authState.User) == album?.UserId;
     }
 
     private Task DeleteAsync()

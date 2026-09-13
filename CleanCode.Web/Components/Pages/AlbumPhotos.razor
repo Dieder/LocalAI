@@ -11,6 +11,8 @@
 @inject Phi3VisionModel VisionModel
 @inject PhotoIndexQueue IndexQueue
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using CleanCode.Web.Components
 
 <PageTitle>Photos - @(album?.Name ?? "Album")</PageTitle>
 
@@ -27,59 +29,62 @@ else
         <p class="text-muted">@album.Name</p>
     </div>
 
-    <div class="border rounded p-4 mb-4 bg-light">
-        <label class="form-label" for="photo-upload">Upload photos</label>
-        <InputFile id="photo-upload" OnChange="UploadAsync" multiple accept="image/*,.rw2" />
-        <div class="form-text">Images are stored in Azure Blob Storage under @album.ImageFolderName.</div>
+    @if (canEdit)
+    {
+        <div class="border rounded p-4 mb-4 bg-light">
+            <label class="form-label" for="photo-upload">Upload photos</label>
+            <InputFile id="photo-upload" OnChange="UploadAsync" multiple accept="image/*,.rw2" />
+            <div class="form-text">Images are stored in Azure Blob Storage under @album.ImageFolderName.</div>
 
-        @if (isUploading || uploadTotal > 0)
-        {
-            <div class="mt-3">
-                <div class="d-flex justify-content-between small text-muted mb-1">
-                    <span>@uploadStatus</span>
-                    <span>@uploadProgress / @uploadTotal</span>
+            @if (isUploading || uploadTotal > 0)
+            {
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span>@uploadStatus</span>
+                        <span>@uploadProgress / @uploadTotal</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@UploadPercent">
+                        <div class="progress-bar" style="width: @UploadPercent%"></div>
+                    </div>
                 </div>
-                <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@UploadPercent">
-                    <div class="progress-bar" style="width: @UploadPercent%"></div>
-                </div>
-            </div>
-        }
+            }
 
-        @if (VisionModel.IsLoaded)
-        {
-            <div class="mt-3 d-flex align-items-center gap-3 flex-wrap">
-                <button class="btn btn-outline-primary" type="button" @onclick="IndexTagsAsync" disabled="@isIndexing">
-                    @(isIndexing ? "Indexing tags..." : "Index tags with vision model")
-                </button>
-                @if (!string.IsNullOrWhiteSpace(indexMessage))
-                {
-                    <span class="text-muted">@indexMessage</span>
-                }
-            </div>
-        }
-        else
-        {
-            <p class="mt-3 mb-0 text-muted"><em>Vision model is loading. Photo management is available now.</em></p>
-        }
-
-        @if (TaggingItems > 0)
-        {
-            <div class="mt-3">
-                <div class="d-flex justify-content-between small text-muted mb-1">
-                    <span>Background indexing</span>
-                    <span>@TaggingComplete / @TaggingItems</span>
+            @if (VisionModel.IsLoaded)
+            {
+                <div class="mt-3 d-flex align-items-center gap-3 flex-wrap">
+                    <button class="btn btn-outline-primary" type="button" @onclick="IndexTagsAsync" disabled="@isIndexing">
+                        @(isIndexing ? "Indexing tags..." : "Index tags with vision model")
+                    </button>
+                    @if (!string.IsNullOrWhiteSpace(indexMessage))
+                    {
+                        <span class="text-muted">@indexMessage</span>
+                    }
                 </div>
-                <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@TaggingPercent">
-                    <div class="progress-bar" style="width: @TaggingPercent%"></div>
-                </div>
-            </div>
-        }
+            }
+            else
+            {
+                <p class="mt-3 mb-0 text-muted"><em>Vision model is loading. Photo management is available now.</em></p>
+            }
 
-        @if (!string.IsNullOrWhiteSpace(errorMessage))
-        {
-            <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
-        }
-    </div>
+            @if (TaggingItems > 0)
+            {
+                <div class="mt-3">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <span>Background indexing</span>
+                        <span>@TaggingComplete / @TaggingItems</span>
+                    </div>
+                    <div class="progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="@TaggingPercent">
+                        <div class="progress-bar" style="width: @TaggingPercent%"></div>
+                    </div>
+                </div>
+            }
+
+            @if (!string.IsNullOrWhiteSpace(errorMessage))
+            {
+                <div class="alert alert-danger mt-3 mb-0">@errorMessage</div>
+            }
+        </div>
+    }
 
     @if (photos.Count == 0)
     {
@@ -122,15 +127,18 @@ else
                                         </div>
                                     }
                                 </div>
-                                <div class="card-footer bg-white border-0">
-                                    @if (VisionModel.IsLoaded)
-                                    {
-                                        <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => IndexPhotoAsync(photo)" disabled="@IsPhotoIndexing(photo)">
-                                            @(IsPhotoIndexing(photo) ? "Analysing..." : "Index tags")
-                                        </button>
-                                    }
-                                    <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(photo)">Delete</button>
-                                </div>
+                                @if (canEdit)
+                                {
+                                    <div class="card-footer bg-white border-0">
+                                        @if (VisionModel.IsLoaded)
+                                        {
+                                            <button class="btn btn-sm btn-outline-primary me-2" @onclick="() => IndexPhotoAsync(photo)" disabled="@IsPhotoIndexing(photo)">
+                                                @(IsPhotoIndexing(photo) ? "Analysing..." : "Index tags")
+                                            </button>
+                                        }
+                                        <button class="btn btn-sm btn-outline-danger" @onclick="() => DeleteAsync(photo)">Delete</button>
+                                    </div>
+                                }
                             </article>
                         </div>
                     }
@@ -148,6 +156,7 @@ else
     private IReadOnlyList<AlbumPhoto> photos = [];
     private bool isUploading;
     private bool isIndexing;
+    private bool canEdit;
     private string? errorMessage;
     private string? indexMessage;
     private int uploadProgress;
@@ -179,10 +188,14 @@ else
     private int TaggingPercent => TaggingItems == 0 ? 0 : (int)((TaggingComplete / (double)TaggingItems) * 100);
     private sealed record DatePhotoGroup(DateTime Date, string Header, List<AlbumPhoto> Photos);
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         album = Catalog.Get(Id);
         LoadPhotos();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        canEdit = CurrentUserHelper.GetUserId(authState.User) == album?.UserId;
+
         _ = WaitForModelAsync();
     }
 

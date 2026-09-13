@@ -3,6 +3,8 @@
 @using PhotoIt.Data
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
+@using CleanCode.Web.Components
 
 <PageTitle>@(albumLayout?.Title ?? album?.Name ?? "Album")</PageTitle>
 
@@ -14,7 +16,10 @@
 else if (albumLayout is null)
 {
     <div class="alert alert-warning">No layout has been created for this album yet.</div>
-    <a class="btn btn-primary" href="albums/@album.Id/layout/edit">Create layout</a>
+    @if (canEdit)
+    {
+        <a class="btn btn-primary" href="albums/@album.Id/layout/edit">Create layout</a>
+    }
 }
 else
 {
@@ -23,9 +28,12 @@ else
             <div>
                 <a class="text-decoration-none" href="albums/@album.Id">&larr; Back to album</a>
             </div>
-            <div class="d-flex gap-2">
-                <a class="btn btn-sm btn-outline-secondary" href="albums/@album.Id/layout/edit">Edit layout</a>
-            </div>
+            @if (canEdit)
+            {
+                <div class="d-flex gap-2">
+                    <a class="btn btn-sm btn-outline-secondary" href="albums/@album.Id/layout/edit">Edit layout</a>
+                </div>
+            }
         </div>
 
         <div class="layout-viewer-page">
@@ -71,21 +79,23 @@ else
     private int currentViewIndex;
     private int totalPages;
     private LayoutPage? currentContentPage;
+    private bool canEdit;
 
-    protected override void OnInitialized()
+    protected override async Task OnInitializedAsync()
     {
         album = Catalog.Get(Id);
         if (album is null)
             return;
 
         albumLayout = Catalog.GetLayout(Id);
-        if (albumLayout is null)
-            return;
 
         var photos = Catalog.ListPhotos(Id);
         photoLookup = photos.ToDictionary(photo => photo.Id, StringComparer.OrdinalIgnoreCase);
-        totalPages = 1 + albumLayout.Pages.Count;
+        totalPages = 1 + (albumLayout?.Pages.Count ?? 0);
         UpdateCurrentContentPage();
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        canEdit = CurrentUserHelper.GetUserId(authState.User) == album.UserId;
     }
 
     private void HandleKeyDown(KeyboardEventArgs args)

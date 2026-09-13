@@ -5,6 +5,8 @@
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
 @inject HttpClient Http
+@inject AuthenticationStateProvider AuthStateProvider
+@using CleanCode.Web.Components
 @using Microsoft.AspNetCore.Authorization;
 @attribute [Authorize]
 
@@ -198,6 +200,14 @@ else
         album = Catalog.Get(Id);
         if (album is null)
             return;
+
+        var authState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var currentUserId = CurrentUserHelper.GetUserId(authState.User);
+        if (currentUserId != album.UserId)
+        {
+            Navigation.NavigateTo($"albums/{album.Id}");
+            return;
+        }
 
         photos = Catalog.ListPhotos(Id);
         photoLookup = photos.ToDictionary(photo => photo.Id, StringComparer.OrdinalIgnoreCase);
