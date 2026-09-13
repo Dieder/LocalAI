@@ -15,6 +15,7 @@
 }
 else
 {
+    
     <div class="d-flex justify-content-between align-items-start mb-4">
         <div>
             <a class="text-decoration-none" href="albums">&larr; Back to albums</a>
@@ -24,16 +25,52 @@ else
         <div class="d-flex gap-2 flex-wrap">
             @if (canEdit)
             {
-                <a class="btn btn-outline-secondary" href="albums/@album.Id/photos">Manage photos</a>
-                <a class="btn btn-outline-primary" href="albums/@album.Id/layout/edit">
-                    @(hasLayout ? "Edit layout" : "Create layout")
+                <a class="toolbar-button" href="albums/@album.Id/photos">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M4 5h16v14H4z" stroke-width="2" />
+                        <circle cx="9" cy="10" r="2" stroke-width="2" />
+                        <path d="M21 15l-5-5L5 21" stroke-width="2" />
+                    </svg>
+                    <span>Manage photos</span>
                 </a>
-                <a class="btn btn-outline-primary" href="albums/@album.Id/edit">Edit</a>
-                <button class="btn btn-outline-danger" @onclick="DeleteAsync">Delete</button>
+                <a class="toolbar-button" href="albums/@album.Id/layout/edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M4 4h7v7H4zM13 4h7v7h-7zM4 13h7v7H4zM13 13h7v7h-7z" stroke-width="2" />
+                    </svg>
+                    <span>@(hasLayout ? "Edit layout" : "Create layout")</span>
+                </a>
+                <a class="toolbar-button" href="albums/@album.Id/edit">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M12 20h9" stroke-width="2" />
+                        <path d="M16.5 3.5a2.1 2.1 0 013 3L7 19l-4 1 1-4 12.5-12.5z" stroke-width="2" />
+                    </svg>
+                    <span>Edit</span>
+                </a>
+                <a class="toolbar-button" href="travelroute/@album.Id">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M12 21s7-5.5 7-11a7 7 0 10-14 0c0 5.5 7 11 7 11z" stroke-width="2" />
+                        <circle cx="12" cy="10" r="2.5" stroke-width="2" />
+                    </svg>
+
+                    <span>Travel route</span></a>
+                <button class="toolbar-button danger" @onclick="DeleteAsync">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M3 6h18" stroke-width="2" />
+                        <path d="M8 6V4h8v2" stroke-width="2" />
+                        <path d="M19 6l-1 14H6L5 6" stroke-width="2" />
+                    </svg>
+                    <span>Delete</span>
+                </button>
             }
             @if (hasLayout)
             {
-                <a class="btn btn-primary" href="albums/@album.Id/layout/view">View album</a>
+                <a class="toolbar-button" href="albums/@album.Id/layout/view">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor">
+                        <path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z" stroke-width="2" />
+                        <circle cx="12" cy="12" r="3" stroke-width="2" />
+                    </svg>
+                    <span>View album</span>
+                </a>
             }
         </div>
     </div>

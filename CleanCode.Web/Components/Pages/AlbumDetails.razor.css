@@ -1,0 +1,51 @@
+/* CSS for AlbumDetails component */
+.album-toolbar {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+
+.toolbar-button {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 90px;
+    min-height: 80px;
+    max-height: 98px;
+    padding: 0.75rem;
+    border: 1px solid #dcdcdc;
+    border-radius: 12px;
+    background: white;
+    color: #444;
+    text-decoration: none;
+    transition: all 0.2s ease;
+}
+
+    .toolbar-button:hover {
+        background: #f8f9fa;
+        border-color: #999;
+        transform: translateY(-2px);
+    }
+
+    .toolbar-button svg {
+        width: 28px;
+        height: 28px;
+        margin-bottom: 0.5rem;
+    }
+
+    .toolbar-button span {
+        font-size: 0.85rem;
+        text-align: center;
+    }
+
+    .toolbar-button.primary {
+        background: #0d6efd;
+        color: white;
+        border-color: #0d6efd;
+    }
+
+    .toolbar-button.danger {
+        color: #dc3545;
+        border-color: #dc3545;
+    }

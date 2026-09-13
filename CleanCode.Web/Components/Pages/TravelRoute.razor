@@ -1,17 +1,107 @@
-﻿@using Microsoft.AspNetCore.Authorization;
+﻿@page "/travelroute/{Albumid}"
+@using Microsoft.AspNetCore.Authorization
+@inject AuthenticationStateProvider AuthStateProvider
 @attribute [Authorize]
 
-<h3>TravelRoute</h3>
 @inject IJSRuntime JS
 
-<div id="travelMap" style="height:700px;"></div>
+<div class="row">
+
+    <div class="col-md-4">
+
+        <h4>Route Editor</h4>
+
+        @foreach (var leg in Model.Legs.Select((item, index) => new { item, index }))
+        {
+            <div class="card mb-2">
+                <div class="card-body">
+
+                    <div class="mb-2">
+                        <label>Van</label>
+                        <input class="form-control"
+                               @bind="leg.item.From.Place" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Naar</label>
+                        <input class="form-control"
+                               @bind="leg.item.To.Place" />
+                    </div>
+
+                    <div class="mb-2">
+                        <label>Transport</label>
+
+                        <InputSelect class="form-select"
+                                     @bind-Value="leg.item.Transport">
+
+                            @foreach (var transport in Enum.GetValues<TransportType>())
+                            {
+                                <option value="@transport">
+                                    @GetTransportText(transport)
+                                </option>
+                            }
+
+                        </InputSelect>
+                    </div>
+
+                    <button class="btn btn-danger btn-sm"
+                            @onclick="() => RemoveLeg(leg.index)">
+                        Verwijderen
+                    </button>
+
+                </div>
+            </div>
+        }
+
+        <button class="btn btn-primary"
+                @onclick="AddLeg">
+            + Leg toevoegen
+        </button>
+
+        <button class="btn btn-success ms-2"
+                @onclick="RefreshMap">
+            Kaart bijwerken
+        </button>
+
+    </div>
+
+    <div class="col-md-8">
+        <div id="travelMap" style="height:800px;"></div>
+    </div>
+
+</div>
 
 @code {
 
     [Parameter]
-    public List<RouteLeg> Route { get; set; } = [];
+    public string AlbumId { get; set; } = string.Empty;
 
+    private TripGraph Model = new();
+    private AuthenticationState authenticationState;
 
+    protected override async Task OnInitializedAsync()
+    {
+        authenticationState = await AuthStateProvider.GetAuthenticationStateAsync();
+        var email = CurrentUserHelper.GetUserId(authenticationState.User);
+        if (string.IsNullOrEmpty(email))
+        {
+            throw new InvalidOperationException("User is not authenticated.");
+        }
+        if (string.IsNullOrEmpty(AlbumId))
+        {
+            throw new InvalidOperationException("AlbumId parameter is required.");
+        }
+
+        Model.UserId = email;
+        Model.AlbumId = AlbumId;
+        Model.Legs.Add(new RouteLeg
+        {
+            From = new RoutePoint(),
+            To = new RoutePoint(),
+            Transport = TransportType.Car
+        });
+        base.OnInitialized();
+    }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -19,7 +109,45 @@
         {
             await JS.InvokeVoidAsync(
                 "travelMap.initialize",
-                Route);
+                Model.Legs);
         }
+    }
+
+    private void AddLeg()
+    {
+        Model.Legs.Add(new RouteLeg
+        {
+            From = new RoutePoint(),
+            To = new RoutePoint(),
+            Transport = TransportType.Car
+        });
+        StateHasChanged();
+    }
+
+    private void RemoveLeg(int index)
+    {
+        Model.Legs.RemoveAt(index);
+        StateHasChanged();
+    }
+
+    private async Task RefreshMap()
+    {
+        await JS.InvokeVoidAsync(
+            "travelMap.update",
+            Model.Legs);
+        StateHasChanged();
+    }
+
+    private string GetTransportText(TransportType type)
+    {
+        return type switch
+        {
+            TransportType.Car => "🚗 Auto",
+            TransportType.Plane => "✈️ Vliegtuig",
+            TransportType.Boat => "⛵ Boot",
+            TransportType.Walking => "🚶 Wandeling",
+            TransportType.Bicycle => "🚴 Fiets",
+            _ => type.ToString()
+        };
     }
 }

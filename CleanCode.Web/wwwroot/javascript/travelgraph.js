@@ -1,110 +1,143 @@
-﻿window.transportIcon = transportIcon;
-window.travelMap = {
+﻿window.travelMap = {
+    map: null,
 
-    initialize: function (routeLegs) {
+    initialize: function () {
+        if (this.map) {
+            this.map.remove();
+        }
 
-        const map = L.map('travelMap');
-
-        map.setView([-30, 24], 6);
+        this.map = L.map('travelMap');
+        this.map.setView([-30, 24], 4);
 
         L.tileLayer(
             'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
             {
                 attribution: '&copy; OpenStreetMap'
             }
-        ).addTo(map);
+        ).addTo(this.map);
 
-        var bounds = [];
+        this.markers = [];
+        this.polylines = [];
+        this.routeLayers = [];
+    },
 
-        routeLegs.forEach(leg => {
+    refresh: function (tripGraph) {
+        var self = this;
 
-            const from = [
-                leg.from.latitude,
-                leg.from.longitude
-            ];
+        // Clear previous markers and polylines
+        this.markers.forEach(m => this.map.removeLayer(m));
+        this.polylines.forEach(p => this.map.removeLayer(p));
+        this.routeLayers.forEach(r => this.map.removeLayer(r));
+        this.markers = [];
+        this.polylines = [];
+        this.routeLayers = [];
 
-            const to = [
-                leg.to.latitude,
-                leg.to.longitude
-            ];
+        var bounds = L.latLngBounds();
 
-            bounds.push(from);
-            bounds.push(to);
+        if (!tripGraph || !tripGraph.legs || tripGraph.legs.length === 0) {
+            return;
+        }
 
-            var color = "blue";
-            var dashArray = null;
+        tripGraph.legs.forEach(function (leg) {
+            var from = leg.from;
+            var to = leg.to;
 
-            switch (leg.transport) {
+            if (!from || !to) return;
 
-                case 0: // Car
-                    color = "green";
-                    break;
+            var fromLatLng = [from.latitude, from.longitude];
+            var toLatLng = [to.latitude, to.longitude];
 
-                case 1: // Plane
-                    color = "red";
-                    dashArray = "10 10";
-                    break;
+            bounds.extend(fromLatLng);
+            bounds.extend(toLatLng);
 
-                case 2: // Boat
-                    color = "navy";
-                    dashArray = "5 10";
-                    break;
+            // Markers
+            var fromIcon = L.divIcon({
+                html: '📍',
+                className: 'travel-marker',
+                iconSize: [30, 30]
+            });
+            var toIcon = window.transportIcon(leg.transport);
 
-                case 3: // Walking
-                    color = "orange";
-                    break;
+            var fromMarker = L.marker(fromLatLng, { icon: fromIcon }).addTo(self.map)
+                .bindPopup('<strong>' + from.place + '</strong>' + (from.warning ? '<br/><span style="color:red">⚠ ' + from.warning + '</span>' : ''));
+            this.markers.push(fromMarker);
 
-                case 4: // Bicycle
-                    color = "purple";
-                    break;
+            var toMarker = L.marker(toLatLng, { icon: toIcon }).addTo(self.map)
+                .bindPopup('<strong>' + to.place + '</strong>' + (to.warning ? '<br/><span style="color:red">⚠ ' + to.warning + '</span>' : ''));
+            this.markers.push(toMarker);
+
+            // If we have cached route geometry (GeoJSON), use it; otherwise draw straight line
+            if (leg.routeGeoJson) {
+                try {
+                    var geoJson = JSON.parse(leg.routeGeoJson);
+                    var routeLayer = L.geoJSON(geoJson, {
+                        style: {
+                            color: getTransportColor(leg.transport),
+                            weight: leg.transport === 1 ? 3 : 5,
+                            opacity: 0.8,
+                            dashArray: leg.transport === 1 ? '10,10' : (leg.transport === 2 ? '5,10' : null)
+                        }
+                    }).addTo(self.map);
+                    self.routeLayers.push(routeLayer);
+                } catch (e) {
+                    console.error('Failed to parse route GeoJSON', e);
+                    drawStraightLine(fromLatLng, toLatLng, leg.transport, self.map, self.polylines);
+                }
+            } else {
+                drawStraightLine(fromLatLng, toLatLng, leg.transport, self.map, self.polylines);
             }
-
-            L.marker(from)
-                .addTo(map)
-                .bindPopup(leg.from.place);
-
-            L.marker(to)
-                .addTo(map)
-                .bindPopup(leg.to.place);
-
-            L.polyline(
-                [from, to],
-                {
-                    color: color,
-                    weight: 5,
-                    dashArray: dashArray
-                })
-                .addTo(map);
         });
 
-        map.fitBounds(bounds);
+        if (bounds.isValid()) {
+            this.map.fitBounds(bounds, { padding: [50, 50] });
+        }
+    },
+
+    reloadRoutes: function (tripGraph) {
+        this.refresh(tripGraph);
+    }
+};
+
+function getTransportColor(transport) {
+    switch (transport) {
+        case 0: return 'green';   // Car
+        case 1: return 'red';     // Plane
+        case 2: return 'navy';    // Boat
+        case 3: return 'orange';  // Walking
+        case 4: return 'purple';  // Bicycle
+        default: return 'blue';
     }
 }
-function transportIcon(type) {
 
-    let icon = "🚗";
+function drawStraightLine(fromLatLng, toLatLng, transport, map, polylinesArray) {
+    var color = getTransportColor(transport);
+    var dashArray = null;
+
+    if (transport === 1) { // Plane
+        dashArray = '10,10';
+    } else if (transport === 2) { // Boat
+        dashArray = '5,10';
+    }
+
+    var polyline = L.polyline([fromLatLng, toLatLng], {
+        color: color,
+        weight: transport === 1 ? 3 : 5,
+        opacity: 0.8,
+        dashArray: dashArray
+    }).addTo(map);
+
+    polylinesArray.push(polyline);
+}
+
+function transportIcon(type) {
+    var icon = "🚗";
 
     switch (type) {
-
-        case 0:
-            icon = "🚗";
-            break;
-
-        case 1:
-            icon = "✈️";
-            break;
-
-        case 2:
-            icon = "⛵";
-            break;
-
-        case 3:
-            icon = "🚶";
-            break;
-
-        case 4:
-            icon = "🚴";
-            break;
+        case 0: icon = "🚗"; break; // Car
+        case 1: icon = "✈️"; break;  // Plane
+        case 2: icon = "⛵"; break;  // Boat
+        case 3: icon = "🚶"; break;  // Walking
+        case 4: icon = "🚴"; break;  // Bicycle
     }
 
     return L.divIcon({
