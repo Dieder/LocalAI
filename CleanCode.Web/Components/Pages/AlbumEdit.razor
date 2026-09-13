@@ -3,7 +3,8 @@
 @using PhotoIt.Data
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
-
+@using Microsoft.AspNetCore.Authorization;
+@attribute [Authorize]
 <PageTitle>Edit album</PageTitle>
 
 @if (model is null)
@@ -36,6 +37,7 @@ else
                 Id = album.Id,
                 CreatedUtc = album.CreatedUtc,
                 UpdatedUtc = album.UpdatedUtc,
+                Intro = album.Intro,
                 Name = album.Name,
                 ImageFolderName = album.ImageFolderName,
                 FullDescription = album.FullDescription,

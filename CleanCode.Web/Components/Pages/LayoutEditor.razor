@@ -5,6 +5,8 @@
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
 @inject HttpClient Http
+@using Microsoft.AspNetCore.Authorization;
+@attribute [Authorize]
 
 <PageTitle>Edit layout - @(album?.Name ?? "Album")</PageTitle>
 

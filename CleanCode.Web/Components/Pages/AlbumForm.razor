@@ -2,6 +2,7 @@
 @using System.ComponentModel.DataAnnotations
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthStateProvider
 
 <EditForm Model="Model" OnValidSubmit="SaveAsync">
     <DataAnnotationsValidator />
@@ -47,9 +48,22 @@
     public bool IsNew { get; set; }
 
     private string? errorMessage;
+    private AuthenticationState authenticationState;
+
+    protected override async Task OnInitializedAsync()
+    {
+        authenticationState = await AuthStateProvider.GetAuthenticationStateAsync();
+        await base.OnInitializedAsync();
+    }
 
     private Task SaveAsync()
     {
+        if (string.IsNullOrEmpty(Model.UserId))
+        {
+            var user = authenticationState.User;
+            var emailClaim = user.Claims.FirstOrDefault(c => c.Type == "email");
+            Model.UserId = emailClaim?.Value ?? user?.Identity?.Name ?? throw new UnauthorizedAccessException("no user found");
+        }
         errorMessage = null;
         if (Catalog.ImageFolderNameExists(Model.ImageFolderName, IsNew ? null : Model.Id))
         {

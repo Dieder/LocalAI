@@ -4,7 +4,8 @@
     <div class="col-6">
         <textarea class="form-control"
                   rows="15"
-                  @bind="Value">
+                  value="@Value"
+                  @oninput="OnInput">
         </textarea>
     </div>
 
@@ -21,4 +22,11 @@
 
     [Parameter]
     public EventCallback<string?> ValueChanged { get; set; }
+
+    private async Task OnInput(ChangeEventArgs e)
+    {
+        Value = e.Value?.ToString();
+
+        await ValueChanged.InvokeAsync(Value);
+    }
 }

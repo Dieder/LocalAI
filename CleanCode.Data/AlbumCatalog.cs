@@ -14,12 +14,16 @@ public class Album
     public string FullDescription { get; set; } = string.Empty;
 
     public string Intro { get; set; } = string.Empty;
+
+    public string UserId { get; set; } = string.Empty;  
 }
 
 public sealed class AlbumPhoto
 {
     [BsonId]
     public string Id { get; set; } = Guid.NewGuid().ToString("N");
+
+    public string UserId { get; set; } = string.Empty;  
     public string AlbumId { get; set; } = string.Empty;
     public string BlobName { get; set; } = string.Empty;
     public string OriginalFileName { get; set; } = string.Empty;

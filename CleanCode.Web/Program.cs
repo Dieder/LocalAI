@@ -15,7 +15,7 @@ builder.Services.AddDbContext<AlbumWebContext>(options => options.UseSqlite(conn
 
 // Add service defaults & Aspire client integrations.
 builder.AddServiceDefaults();
-
+builder.Services.AddHttpContextAccessor();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();

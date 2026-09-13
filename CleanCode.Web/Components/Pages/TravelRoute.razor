@@ -1,0 +1,25 @@
+﻿@using Microsoft.AspNetCore.Authorization;
+@attribute [Authorize]
+
+<h3>TravelRoute</h3>
+@inject IJSRuntime JS
+
+<div id="travelMap" style="height:700px;"></div>
+
+@code {
+
+    [Parameter]
+    public List<RouteLeg> Route { get; set; } = [];
+
+
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JS.InvokeVoidAsync(
+                "travelMap.initialize",
+                Route);
+        }
+    }
+}
