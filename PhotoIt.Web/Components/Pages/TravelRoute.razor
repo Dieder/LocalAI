@@ -1,6 +1,8 @@
 ﻿@page "/travelroute/{AlbumId}"
 @rendermode InteractiveServer
 @using Microsoft.AspNetCore.Authorization
+@using PhotoIt.Core.Services
+@inject NominatimClient NominatimClient
 @inject AuthenticationStateProvider AuthStateProvider
 @attribute [Authorize]
 
@@ -20,14 +22,22 @@
                     <div class="mb-2">
                         <label>Van</label>
                         <input class="form-control"
-                               @bind="leg.item.From.Place" />
+                               @bind="leg.item.From.Place"
+                               @onblur="async (e) => await OnPlaceChanged(leg.item.From)" />
                     </div>
-
+                    <span>
+                        @(leg.item.From.HasGeoPoint() ? "📍" : "❌")
+                    </span>
+                    
                     <div class="mb-2">
                         <label>Naar</label>
                         <input class="form-control"
-                               @bind="leg.item.To.Place" />
+                               @bind="leg.item.To.Place"
+                               @onblur="async (e) => await OnPlaceChanged(leg.item.To)" />
                     </div>
+                    <span>
+                        @(leg.item.To.HasGeoPoint() ? "📍" : "❌")
+                    </span>
 
                     <div class="mb-2">
                         <label>Transport</label>
@@ -44,8 +54,7 @@
 
                         </InputSelect>
                     </div>
-
-                    <button class="btn btn-danger btn-sm"
+                                        <button class="btn btn-danger btn-sm"
                             @onclick="() => RemoveLeg(leg.index)">
                         Verwijderen
                     </button>
@@ -116,9 +125,18 @@
 
     private void AddLeg()
     {
+        var lastLeg = Model.Legs.Last().To;
+        var newFrom = new RoutePoint
+            {
+                Place = lastLeg.Place,
+                Latitude = lastLeg.Latitude,
+                Longitude = lastLeg.Longitude,
+                FoundName = lastLeg.FoundName,
+                Country = lastLeg.Country
+            }; 
         Model.Legs.Add(new RouteLeg
         {
-            From = new RoutePoint(),
+            From = newFrom,
             To = new RoutePoint(),
             Transport = TransportType.Car
         });
@@ -133,9 +151,18 @@
 
     private async Task RefreshMap()
     {
-        await JS.InvokeVoidAsync(
-            "travelMap.update",
-            Model.Legs);
+        if (Model.Legs.All(leg => leg.From.HasGeoPoint() && leg.To.HasGeoPoint()))        
+        {
+            await JS.InvokeVoidAsync(
+           "travelMap.refresh",
+           Model);
+        }
+        else
+        {
+            // show alert to user that some points are missing
+            await JS.InvokeVoidAsync("alert", "Some points are missing geo-coordinates. Please check the input fields.");
+        }   
+       
         StateHasChanged();
     }
 
@@ -151,4 +178,33 @@
             _ => type.ToString()
         };
     }
+
+    private async Task OnPlaceChanged(RoutePoint point)
+    {
+        if (point.Place == null || point.Place.Length < 3)
+        {
+            point.ResetGeo();
+            return;
+        };
+
+        if (point.Place == point.Id)
+        {
+            return;
+        }
+        
+        var result = await NominatimClient.ResolvePlaceAsync(point.Place);
+       
+        if (result != null)
+        {
+            point.Id = point.Place;
+            point.FoundName = result.Name;
+            point.Country = result.Country;
+            point.Latitude = result.Latitude;
+            point.Longitude = result.Longitude;
+        
+        }
+
+        StateHasChanged();
+    }
+
 }

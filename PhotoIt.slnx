@@ -4,6 +4,7 @@
   <Project Path="CleanCode.AiOrgestation/PhotoIt.AiOrchestration.csproj" />
   <Project Path="CleanCode.ApiService/CleanCode.ApiService.csproj" />
   <Project Path="PhotoIt.AppHost/PhotoIt.AppHost.csproj" />
+  <Project Path="PhotoIt.Core/PhotoIt.Core.csproj" Id="0b83e873-05ed-4c48-8baf-c64f66303b77" />
   <Project Path="PhotoIt.Data/PhotoIt.Data.csproj" Id="2fd31c1a-1de1-4d0e-afd2-71da1b0212f7" />
   <Project Path="PhotoIt.ServiceDefaults/PhotoIt.ServiceDefaults.csproj" />
   <Project Path="PhotoIt.Web/PhotoIt.Web.csproj" />

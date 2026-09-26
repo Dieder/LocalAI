@@ -39,6 +39,7 @@
         }
 
         tripGraph.legs.forEach(function (leg) {
+
             var from = leg.from;
             var to = leg.to;
 
@@ -50,43 +51,77 @@
             bounds.extend(fromLatLng);
             bounds.extend(toLatLng);
 
-            // Markers
             var fromIcon = L.divIcon({
                 html: '📍',
                 className: 'travel-marker',
                 iconSize: [30, 30]
             });
-            var toIcon = window.transportIcon(leg.transport);
 
-            var fromMarker = L.marker(fromLatLng, { icon: fromIcon }).addTo(self.map)
-                .bindPopup('<strong>' + from.place + '</strong>' + (from.warning ? '<br/><span style="color:red">⚠ ' + from.warning + '</span>' : ''));
-            this.markers.push(fromMarker);
+            var toIcon = transportIcon(leg.transport);
 
-            var toMarker = L.marker(toLatLng, { icon: toIcon }).addTo(self.map)
-                .bindPopup('<strong>' + to.place + '</strong>' + (to.warning ? '<br/><span style="color:red">⚠ ' + to.warning + '</span>' : ''));
-            this.markers.push(toMarker);
+            var fromMarker = L.marker(fromLatLng, { icon: fromIcon })
+                .addTo(self.map)
+                .bindPopup('<strong>' + from.place + '</strong>');
 
-            // If we have cached route geometry (GeoJSON), use it; otherwise draw straight line
+            self.markers.push(fromMarker);
+
+            var toMarker = L.marker(toLatLng, { icon: toIcon })
+                .addTo(self.map)
+                .bindPopup('<strong>' + to.place + '</strong>');
+
+            self.markers.push(toMarker);
+
             if (leg.routeGeoJson) {
+
                 try {
+
                     var geoJson = JSON.parse(leg.routeGeoJson);
+
                     var routeLayer = L.geoJSON(geoJson, {
                         style: {
                             color: getTransportColor(leg.transport),
-                            weight: leg.transport === 1 ? 3 : 5,
-                            opacity: 0.8,
-                            dashArray: leg.transport === 1 ? '10,10' : (leg.transport === 2 ? '5,10' : null)
+                            weight: 5
                         }
                     }).addTo(self.map);
+
                     self.routeLayers.push(routeLayer);
+
                 } catch (e) {
-                    console.error('Failed to parse route GeoJSON', e);
-                    drawStraightLine(fromLatLng, toLatLng, leg.transport, self.map, self.polylines);
+
+                    console.error(e);
+
+                    drawStraightLine(
+                        fromLatLng,
+                        toLatLng,
+                        leg.transport,
+                        self.map,
+                        self.polylines);
+
                 }
+
             } else {
-                drawStraightLine(fromLatLng, toLatLng, leg.transport, self.map, self.polylines);
+
+                drawStraightLine(
+                    fromLatLng,
+                    toLatLng,
+                    leg.transport,
+                    self.map,
+                    self.polylines);
             }
         });
+
+        var midpoint = [
+            (fromLatLng[0] + toLatLng[0]) / 2,
+            (fromLatLng[1] + toLatLng[1]) / 2
+        ];
+
+        var iconMarker = L.marker(midpoint, {
+            icon: L.divIcon({
+                html: this.transportIcon(type),
+                className: "transport-icon",
+                iconSize: [30, 30]
+            })
+        }).addTo(map);
 
         if (bounds.isValid()) {
             this.map.fitBounds(bounds, { padding: [50, 50] });
@@ -113,9 +148,9 @@ function drawStraightLine(fromLatLng, toLatLng, transport, map, polylinesArray) 
     var color = getTransportColor(transport);
     var dashArray = null;
 
-    if (transport === 1) { // Plane
+    if (transport === 3) { // Walking
         dashArray = '10,10';
-    } else if (transport === 2) { // Boat
+    } else if (transport === 4) { // Cycle
         dashArray = '5,10';
     }
 

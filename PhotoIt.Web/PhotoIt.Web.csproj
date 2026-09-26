@@ -23,6 +23,7 @@
   <ItemGroup>
     <ProjectReference Include="..\AiFoundryLocal\AiFoundryLocal.csproj" />
     <ProjectReference Include="..\CleanCode.AiOrgestation\PhotoIt.AiOrchestration.csproj" />
+    <ProjectReference Include="..\PhotoIt.Core\PhotoIt.Core.csproj" />
     <ProjectReference Include="..\PhotoIt.Data\PhotoIt.Data.csproj" />
     <ProjectReference Include="..\PhotoIt.ServiceDefaults\PhotoIt.ServiceDefaults.csproj" />
   </ItemGroup>

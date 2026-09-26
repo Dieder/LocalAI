@@ -4,10 +4,12 @@ using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using PhotoIt.AiOrchestration;
+using PhotoIt.Core.Services;
 using PhotoIt.Data;
 using PhotoIt.Web.Components;
 using PhotoIt.Web.Components.Account;
 using PhotoIt.Web.Data;
+using Microsoft.Extensions.Http;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("AlbumWebContext") ?? throw new InvalidOperationException("Connection string 'AlbumWebContext' not found.");
@@ -25,6 +27,8 @@ builder.Services.AddSingleton<AlbumCatalog>(_ =>
     new AlbumCatalog(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "albums.db")));
 builder.Services.AddSingleton<PhotoTagCatalog>(_ =>
     new PhotoTagCatalog(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "photo-tags.db")));
+
+builder.Services.AddHttpClient<NominatimClient>();
 
 builder.Services.AddSingleton(_ =>
 {
