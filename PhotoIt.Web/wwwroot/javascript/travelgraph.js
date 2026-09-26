@@ -109,18 +109,20 @@
                     self.polylines);
             }
         });
+        if (fromLatLng && toLatLng) {
 
-        var midpoint = [
-            (fromLatLng[0] + toLatLng[0]) / 2,
-            (fromLatLng[1] + toLatLng[1]) / 2
-        ];
+            var midpoint = [
+                (fromLatLng + toLatLng) / 2,
+                (fromLatLng + toLatLng) / 2
+            ];
 
-        var iconMarker = L.marker(midpoint, {
-            icon: L.divIcon({
-                html: this.transportIcon(type),
-                className: "transport-icon",
-                iconSize: [30, 30]
-            })
+            var iconMarker = L.marker(midpoint, {
+                icon: L.divIcon({
+                    html: this.transportIcon(type),
+                    className: "transport-icon",
+                    iconSize: [30, 30]
+                });
+            }
         }).addTo(map);
 
         if (bounds.isValid()) {
