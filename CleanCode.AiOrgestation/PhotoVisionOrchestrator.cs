@@ -1,7 +1,7 @@
 using AiFoundryLocal;
 using PhotoIt.Data;
 
-namespace CleanCode.AiOrchestration;
+namespace PhotoIt.AiOrchestration;
 
 public sealed record PhotoIndexResult(int Indexed, int Skipped, int Failed);
 

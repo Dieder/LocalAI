@@ -7,7 +7,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\CleanCode.ServiceDefaults\PhotoIt.ServiceDefaults.csproj" />
     <ProjectReference Include="..\PhotoIt.ServiceDefaults\PhotoIt.ServiceDefaults.csproj" />
   </ItemGroup>
 

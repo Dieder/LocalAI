@@ -5,7 +5,7 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using PhotoIt.Data;
 
-namespace CleanCode.AiOrchestration;
+namespace PhotoIt.AiOrchestration;
 
 public sealed record AlbumPhotoIndexRequest(string AlbumId, string PhotoId);
 
