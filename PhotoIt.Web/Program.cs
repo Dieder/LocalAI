@@ -1,12 +1,13 @@
-using PhotoIt.Web.Components;
-using PhotoIt.Data;
 using AiFoundryLocal;
-using PhotoIt.Web.Components.Account;
+using LiteDB;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
-using PhotoIt.Web.Data;
 using PhotoIt.AiOrchestration;
+using PhotoIt.Data;
+using PhotoIt.Web.Components;
+using PhotoIt.Web.Components.Account;
+using PhotoIt.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
 var connectionString = builder.Configuration.GetConnectionString("AlbumWebContext") ?? throw new InvalidOperationException("Connection string 'AlbumWebContext' not found.");
@@ -19,12 +20,12 @@ builder.Services.AddHttpContextAccessor();
 // Add services to the container.
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
-
 builder.Services.AddOutputCache();
 builder.Services.AddSingleton<AlbumCatalog>(_ =>
     new AlbumCatalog(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "albums.db")));
 builder.Services.AddSingleton<PhotoTagCatalog>(_ =>
     new PhotoTagCatalog(Path.Combine(builder.Environment.ContentRootPath, "App_Data", "photo-tags.db")));
+
 builder.Services.AddSingleton(_ =>
 {
     var accountUri = builder.Configuration["AzureStorage:AccountUri"];
@@ -135,6 +136,5 @@ using (var scope = app.Services.CreateScope())
 
     db.Database.Migrate();
 }
-
 
 app.Run();
