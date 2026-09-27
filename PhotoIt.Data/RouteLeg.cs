@@ -5,6 +5,8 @@
         public RoutePoint From { get; set; } = new();
         public RoutePoint To { get; set; } = new();
         public TransportType Transport { get; set; }
+
+        public bool IsEditing { get; set; } = false;
     }
 
     

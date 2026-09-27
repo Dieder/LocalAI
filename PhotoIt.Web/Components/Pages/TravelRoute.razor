@@ -19,49 +19,106 @@
         @foreach (var leg in Model.Legs.Select((item, index) => new { item, index }))
         {
             <div class="card mb-2">
+
                 <div class="card-body">
 
-                    <div class="mb-2">
-                        <label>Van</label>
-                        <input class="form-control"
-                               @bind="leg.item.From.Place"
-                               @onblur="async (e) => await OnPlaceChanged(leg.item.From)" />
-                    </div>
-                    <span title="@(leg.item.From.FoundName ?? "Not found")">
-                        @(leg.item.From.HasGeoPoint() ? "📍" : "❌")
-                    </span>
-                    
-                    <div class="mb-2">
-                        <label>Naar</label>
-                        <input class="form-control"
-                               @bind="leg.item.To.Place"
-                               @onblur="async (e) => await OnPlaceChanged(leg.item.To)" />
-                    </div>
-                    <span title="@(leg.item.To.FoundName ?? "Not Found")">
-                        @(leg.item.To.HasGeoPoint() ? "📍" : "❌")
-                    </span>
+                    @if (!leg.item.IsEditing)
+                    {
+                        <div class="d-flex justify-content-between align-items-center">
 
-                    <div class="mb-2">
-                        <label>Transport</label>
+                            <div>
 
-                        <InputSelect class="form-select"
-                                     @bind-Value="leg.item.Transport">
+                                <strong>@leg.item.From.Place</strong>
+                                →
+                                <strong>@leg.item.To.Place</strong>
 
-                            @foreach (var transport in Enum.GetValues<TransportType>())
-                            {
-                                <option value="@transport">
-                                    @GetTransportText(transport)
-                                </option>
-                            }
+                                <span class="ms-2">
+                                    @GetTransportIcon(leg.item.Transport)
+                                </span>
 
-                        </InputSelect>
-                    </div>
-                                        <button class="btn btn-danger btn-sm"
-                            @onclick="() => RemoveLeg(leg.index)">
-                        Verwijderen
-                    </button>
+                            </div>
+
+                            <div>
+
+                                <button class="btn btn-sm btn-outline-secondary me-1"
+                                        @onclick="() => leg.item.IsEditing = true">
+                                    ✏️
+                                </button>
+
+                                <button class="btn btn-sm btn-outline-danger"
+                                        @onclick="() => RemoveLeg(leg.index)">
+                                    🗑️
+                                </button>
+
+                            </div>
+
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="mb-2">
+
+                            <label>Van</label>
+
+                            <input class="form-control"
+                                   @bind="leg.item.From.Place"
+                                   @onblur="async (e) => await OnPlaceChanged(leg.item.From)" />
+
+                            <small title="@(leg.item.From.FoundName ?? "Not found")">
+                                @(leg.item.From.HasGeoPoint() ? "📍" : "❌")
+                            </small>
+
+                        </div>
+
+                        <div class="mb-2">
+
+                            <label>Naar</label>
+
+                            <input class="form-control"
+                                   @bind="leg.item.To.Place"
+                                   @onblur="async (e) => await OnPlaceChanged(leg.item.To)" />
+
+                            <small title="@(leg.item.To.FoundName ?? "Not found")">
+                                @(leg.item.To.HasGeoPoint() ? "📍" : "❌")
+                            </small>
+
+                        </div>
+
+                        <div class="mb-2">
+
+                            <label>Transport</label>
+
+                            <InputSelect class="form-select"
+                                         @bind-Value="leg.item.Transport">
+
+                                @foreach (var transport in Enum.GetValues<TransportType>())
+                                {
+                                    <option value="@transport">
+                                        @GetTransportText(transport)
+                                    </option>
+                                }
+
+                            </InputSelect>
+
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+
+                            <button class="btn btn-success btn-sm"
+                                    @onclick="() => leg.item.IsEditing = false">
+                                ✅
+                            </button>
+
+                            <button class="btn btn-danger btn-sm"
+                                    @onclick="() => RemoveLeg(leg.index)">
+                                🗑️
+                            </button>
+
+                        </div>
+                    }
 
                 </div>
+
             </div>
         }
 
@@ -105,7 +162,7 @@
             throw new InvalidOperationException("AlbumId parameter is required.");
         }
         album = Catalog.Get(AlbumId) ?? throw new InvalidDataException("Album not found");
-        Model = album.TripGraph ?? new TripGraph();      
+        Model = album.TripGraph ?? new TripGraph();
         Model.Legs.Add(new RouteLeg
         {
             From = new RoutePoint(),
@@ -127,17 +184,20 @@
 
     private void AddLeg()
     {
-        var lastLeg = Model.Legs.Last().To;
+        var lastLeg = Model.Legs.Last();
+        lastLeg.IsEditing = false;
+        var lastTo = lastLeg.To;
         var newFrom = new RoutePoint
-            {
-                Place = lastLeg.Place,
-                Latitude = lastLeg.Latitude,
-                Longitude = lastLeg.Longitude,
-                FoundName = lastLeg.FoundName,
-                Country = lastLeg.Country
-            }; 
+        {
+            Place = lastTo.Place,
+            Latitude = lastTo.Latitude,
+            Longitude = lastTo.Longitude,
+            FoundName = lastTo.FoundName,
+            Country = lastTo.Country
+        };
         Model.Legs.Add(new RouteLeg
         {
+            IsEditing = true,
             From = newFrom,
             To = new RoutePoint(),
             Transport = TransportType.Car
@@ -147,17 +207,22 @@
 
     private void RemoveLeg(int index)
     {
+        if (index==0)
+        {
+            return;
+        }
         Model.Legs.RemoveAt(index);
+        Model.Legs.Skip(index - 1).First().IsEditing = true;
         StateHasChanged();
     }
 
     private async Task RefreshMap()
     {
-        if (Model.Legs.All(leg => leg.From.HasGeoPoint() && leg.To.HasGeoPoint()))        
+        if (Model.Legs.All(leg => leg.From.HasGeoPoint() && leg.To.HasGeoPoint()))
         {
             // save Model to database or perform any other necessary actions here
             Model.UpdatedUtc = DateTime.UtcNow;
-            album.TripGraph = Model;            
+            album.TripGraph = Model;
             Catalog.Update(album);
             await JS.InvokeVoidAsync(
            "travelMap.refresh",
@@ -167,9 +232,22 @@
         {
             // show alert to user that some points are missing
             await JS.InvokeVoidAsync("alert", "Some points are missing geo-coordinates. Please check the input fields.");
-        }   
-       
+        }
+
         StateHasChanged();
+    }
+
+    private string GetTransportIcon(TransportType type)
+    {
+        return type switch
+        {
+            TransportType.Car => "🚗",
+            TransportType.Plane => "✈",
+            TransportType.Boat => "⛵",
+            TransportType.Walking => "🚶",
+            TransportType.Bicycle => "🚴",
+            _ => "❓"
+        };
     }
 
     private string GetTransportText(TransportType type)
@@ -181,7 +259,7 @@
             TransportType.Boat => "⛵ Boot",
             TransportType.Walking => "🚶 Wandeling",
             TransportType.Bicycle => "🚴 Fiets",
-            _ => type.ToString()
+            _ => "❓"
         };
     }
 
@@ -191,13 +269,14 @@
         {
             point.ResetGeo();
             return;
-        };
+        }
+        ;
 
         if (point.Place == point.Id)
         {
             return;
         }
-        
+
         var result = await NominatimClient.ResolvePlaceAsync(point.Place);
         point.ResetGeo();
         if (result != null)
@@ -207,7 +286,7 @@
             point.Country = result.Country;
             point.Latitude = result.Latitude;
             point.Longitude = result.Longitude;
-        
+
         }
 
         StateHasChanged();
