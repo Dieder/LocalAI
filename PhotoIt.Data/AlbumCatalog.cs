@@ -13,6 +13,8 @@ public class Album
     public string Name { get; set; } = string.Empty;
     public string FullDescription { get; set; } = string.Empty;
 
+    public TripGraph TripGraph { get; set; } = new TripGraph(); 
+
     public string Intro { get; set; } = string.Empty;
 
     public string UserId { get; set; } = string.Empty;  

@@ -1,7 +1,9 @@
 ﻿@page "/travelroute/{AlbumId}"
 @rendermode InteractiveServer
+
 @using Microsoft.AspNetCore.Authorization
 @using PhotoIt.Core.Services
+@inject AlbumCatalog Catalog
 @inject NominatimClient NominatimClient
 @inject AuthenticationStateProvider AuthStateProvider
 @attribute [Authorize]
@@ -85,6 +87,7 @@
 
     [Parameter]
     public string AlbumId { get; set; } = string.Empty;
+    private Album album;
 
     private TripGraph Model = new();
     private AuthenticationState authenticationState;
@@ -101,9 +104,8 @@
         {
             throw new InvalidOperationException("AlbumId parameter is required.");
         }
-
-        Model.UserId = email;
-        Model.AlbumId = AlbumId;
+        album = Catalog.Get(AlbumId) ?? throw new InvalidDataException("Album not found");
+        Model = album.TripGraph ?? new TripGraph();      
         Model.Legs.Add(new RouteLeg
         {
             From = new RoutePoint(),
@@ -153,6 +155,10 @@
     {
         if (Model.Legs.All(leg => leg.From.HasGeoPoint() && leg.To.HasGeoPoint()))        
         {
+            // save Model to database or perform any other necessary actions here
+            Model.UpdatedUtc = DateTime.UtcNow;
+            album.TripGraph = Model;            
+            Catalog.Update(album);
             await JS.InvokeVoidAsync(
            "travelMap.refresh",
            Model);
