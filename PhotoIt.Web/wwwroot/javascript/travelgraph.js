@@ -1,12 +1,27 @@
 ﻿window.travelMap = {
+
     map: null,
 
+    TRANSPORT: {
+        CAR: 0,
+        PLANE: 1,
+        BOAT: 2,
+        WALKING: 3,
+        CYCLE: 4
+    },
+
+    markers: [],
+    polylines: [],
+    routeLayers: [],
+
     initialize: function () {
+
         if (this.map) {
             this.map.remove();
         }
 
         this.map = L.map('travelMap');
+
         this.map.setView([-30, 24], 4);
 
         L.tileLayer(
@@ -22,12 +37,21 @@
     },
 
     refresh: function (tripGraph) {
+
         var self = this;
 
-        // Clear previous markers and polylines
-        this.markers.forEach(m => this.map.removeLayer(m));
-        this.polylines.forEach(p => this.map.removeLayer(p));
-        this.routeLayers.forEach(r => this.map.removeLayer(r));
+        this.markers.forEach(function (m) {
+            self.map.removeLayer(m);
+        });
+
+        this.polylines.forEach(function (p) {
+            self.map.removeLayer(p);
+        });
+
+        this.routeLayers.forEach(function (r) {
+            self.map.removeLayer(r);
+        });
+
         this.markers = [];
         this.polylines = [];
         this.routeLayers = [];
@@ -43,31 +67,51 @@
             var from = leg.from;
             var to = leg.to;
 
-            if (!from || !to) return;
+            if (!from || !to) {
+                return;
+            }
 
-            var fromLatLng = [from.latitude, from.longitude];
-            var toLatLng = [to.latitude, to.longitude];
+            if (from.latitude == null ||
+                from.longitude == null ||
+                to.latitude == null ||
+                to.longitude == null) {
+                return;
+            }
+
+            var fromLatLng = [
+                from.latitude,
+                from.longitude
+            ];
+
+            var toLatLng = [
+                to.latitude,
+                to.longitude
+            ];
 
             bounds.extend(fromLatLng);
             bounds.extend(toLatLng);
 
             var fromIcon = L.divIcon({
-                html: '📍',
-                className: 'travel-marker',
+                html: "📍",
+                className: "travel-marker",
                 iconSize: [30, 30]
             });
 
             var toIcon = transportIcon(leg.transport);
 
-            var fromMarker = L.marker(fromLatLng, { icon: fromIcon })
+            var fromMarker = L.marker(fromLatLng, {
+                icon: fromIcon
+            })
                 .addTo(self.map)
-                .bindPopup('<strong>' + from.place + '</strong>');
+                .bindPopup("<strong>" + from.place + "</strong>");
 
             self.markers.push(fromMarker);
 
-            var toMarker = L.marker(toLatLng, { icon: toIcon })
+            var toMarker = L.marker(toLatLng, {
+                icon: toIcon
+            })
                 .addTo(self.map)
-                .bindPopup('<strong>' + to.place + '</strong>');
+                .bindPopup("<strong>" + to.place + "</strong>");
 
             self.markers.push(toMarker);
 
@@ -80,53 +124,52 @@
                     var routeLayer = L.geoJSON(geoJson, {
                         style: {
                             color: getTransportColor(leg.transport),
-                            weight: 5
+                            weight: 5,
+                            opacity: 0.8
                         }
                     }).addTo(self.map);
 
                     self.routeLayers.push(routeLayer);
 
-                } catch (e) {
+                }
+                catch (e) {
 
-                    console.error(e);
+                    console.error("GeoJSON parse failed", e);
 
-                    drawStraightLine(
+                    drawTransportLine(
+                        self.map,
                         fromLatLng,
                         toLatLng,
                         leg.transport,
-                        self.map,
-                        self.polylines);
-
+                        self.polylines
+                    );
                 }
 
             } else {
 
-                drawStraightLine(
+                drawTransportLine(
+                    self.map,
                     fromLatLng,
                     toLatLng,
                     leg.transport,
-                    self.map,
-                    self.polylines);
+                    self.polylines
+                );
             }
-        });
-        if (fromLatLng && toLatLng) {
 
             var midpoint = [
-                (fromLatLng + toLatLng) / 2,
-                (fromLatLng + toLatLng) / 2
+                (fromLatLng[0] + toLatLng[0]) / 2,
+                (fromLatLng[1] + toLatLng[1]) / 2
             ];
 
-            var iconMarker = L.marker(midpoint, {
-                icon: L.divIcon({
-                    html: this.transportIcon(type),
-                    className: "transport-icon",
-                    iconSize: [30, 30]
-                });
-            }
-        }).addTo(map);
+            var middleIcon = L.marker(midpoint, {
+                icon: transportIcon(leg.transport)
+            }).addTo(self.map);
+
+            self.markers.push(middleIcon);
+        });
 
         if (bounds.isValid()) {
-            this.map.fitBounds(bounds, { padding: [50, 50] });
+            fitMapToBounds(this.map, bounds);
         }
     },
 
@@ -135,51 +178,189 @@
     }
 };
 
+function fitMapToBounds(map, bounds) {
+
+    var southWest = bounds.getSouthWest();
+    var northEast = bounds.getNorthEast();
+
+    var marginLat = 10 / 111;
+
+    var centerLat = bounds.getCenter().lat;
+
+    var marginLng =
+        10 / (111 * Math.cos(centerLat * Math.PI / 180));
+
+    var expandedBounds = L.latLngBounds(
+        [
+            southWest.lat - marginLat,
+            southWest.lng - marginLng
+        ],
+        [
+            northEast.lat + marginLat,
+            northEast.lng + marginLng
+        ]
+    );
+
+    map.fitBounds(expandedBounds);
+}
+
 function getTransportColor(transport) {
+
     switch (transport) {
-        case 0: return 'green';   // Car
-        case 1: return 'red';     // Plane
-        case 2: return 'navy';    // Boat
-        case 3: return 'orange';  // Walking
-        case 4: return 'purple';  // Bicycle
-        default: return 'blue';
+
+        case window.travelMap.TRANSPORT.CAR:
+            return "green";
+
+        case window.travelMap.TRANSPORT.PLANE:
+            return "red";
+
+        case window.travelMap.TRANSPORT.BOAT:
+            return "navy";
+
+        case window.travelMap.TRANSPORT.WALKING:
+            return "orange";
+
+        case window.travelMap.TRANSPORT.CYCLE:
+            return "purple";
+
+        default:
+            return "blue";
     }
 }
 
-function drawStraightLine(fromLatLng, toLatLng, transport, map, polylinesArray) {
-    var color = getTransportColor(transport);
-    var dashArray = null;
+function drawTransportLine(
+    map,
+    fromLatLng,
+    toLatLng,
+    transport,
+    polylinesArray) {
 
-    if (transport === 3) { // Walking
-        dashArray = '10,10';
-    } else if (transport === 4) { // Cycle
-        dashArray = '5,10';
+    if (transport === window.travelMap.TRANSPORT.PLANE) {
+
+        drawCurvedPlaneLine(
+            map,
+            fromLatLng,
+            toLatLng,
+            polylinesArray
+        );
+
+        return;
     }
 
-    var polyline = L.polyline([fromLatLng, toLatLng], {
-        color: color,
-        weight: transport === 1 ? 3 : 5,
-        opacity: 0.8,
-        dashArray: dashArray
-    }).addTo(map);
+    drawStraightLine(
+        map,
+        fromLatLng,
+        toLatLng,
+        transport,
+        polylinesArray
+    );
+}
+
+function drawCurvedPlaneLine(
+    map,
+    fromLatLng,
+    toLatLng,
+    polylinesArray) {
+
+    var midLat =
+        (fromLatLng[0] + toLatLng[0]) / 2;
+
+    var midLng =
+        (fromLatLng[1] + toLatLng[1]) / 2;
+
+    var distance =
+        Math.abs(toLatLng[1] - fromLatLng[1]);
+
+    var curveOffset =
+        Math.max(distance * 0.2, 1);
+
+    var curvedMidPoint = [
+        midLat + curveOffset,
+        midLng
+    ];
+
+    var polyline = L.polyline(
+        [
+            fromLatLng,
+            curvedMidPoint,
+            toLatLng
+        ],
+        {
+            color: "red",
+            weight: 3,
+            opacity: 0.8,
+            dashArray: "10,10"
+        }
+    ).addTo(map);
+
+    polylinesArray.push(polyline);
+}
+
+function drawStraightLine(
+    map,
+    fromLatLng,
+    toLatLng,
+    transport,
+    polylinesArray) {
+
+    var color = getTransportColor(transport);
+
+    var dashArray = null;
+
+    if (transport === window.travelMap.TRANSPORT.WALKING) {
+        dashArray = "10,10";
+    }
+
+    if (transport === window.travelMap.TRANSPORT.CYCLE) {
+        dashArray = "5,10";
+    }
+
+    var polyline = L.polyline(
+        [
+            fromLatLng,
+            toLatLng
+        ],
+        {
+            color: color,
+            weight: 5,
+            opacity: 0.8,
+            dashArray: dashArray
+        }
+    ).addTo(map);
 
     polylinesArray.push(polyline);
 }
 
 function transportIcon(type) {
+
     var icon = "🚗";
 
     switch (type) {
-        case 0: icon = "🚗"; break; // Car
-        case 1: icon = "✈️"; break;  // Plane
-        case 2: icon = "⛵"; break;  // Boat
-        case 3: icon = "🚶"; break;  // Walking
-        case 4: icon = "🚴"; break;  // Bicycle
+
+        case window.travelMap.TRANSPORT.CAR:
+            icon = "🚗";
+            break;
+
+        case window.travelMap.TRANSPORT.PLANE:
+            icon = "✈️";
+            break;
+
+        case window.travelMap.TRANSPORT.BOAT:
+            icon = "⛵";
+            break;
+
+        case window.travelMap.TRANSPORT.WALKING:
+            icon = "🚶";
+            break;
+
+        case window.travelMap.TRANSPORT.CYCLE:
+            icon = "🚴";
+            break;
     }
 
     return L.divIcon({
         html: icon,
-        className: "",
+        className: "transport-icon",
         iconSize: [30, 30]
     });
 }

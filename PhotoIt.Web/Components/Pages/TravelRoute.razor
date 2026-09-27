@@ -25,7 +25,7 @@
                                @bind="leg.item.From.Place"
                                @onblur="async (e) => await OnPlaceChanged(leg.item.From)" />
                     </div>
-                    <span>
+                    <span title="@(leg.item.From.FoundName ?? "Not found")">
                         @(leg.item.From.HasGeoPoint() ? "📍" : "❌")
                     </span>
                     
@@ -35,7 +35,7 @@
                                @bind="leg.item.To.Place"
                                @onblur="async (e) => await OnPlaceChanged(leg.item.To)" />
                     </div>
-                    <span>
+                    <span title="@(leg.item.To.FoundName ?? "Not Found")">
                         @(leg.item.To.HasGeoPoint() ? "📍" : "❌")
                     </span>
 
@@ -193,7 +193,7 @@
         }
         
         var result = await NominatimClient.ResolvePlaceAsync(point.Place);
-       
+        point.ResetGeo();
         if (result != null)
         {
             point.Id = point.Place;
