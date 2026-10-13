@@ -22,21 +22,34 @@ public static class PhotoMetadataReader
             var ifd0 = directories.OfType<ExifIfd0Directory>().FirstOrDefault();
             var gps = directories.FirstOrDefault(directory => directory.Name.Contains("GPS", StringComparison.OrdinalIgnoreCase));
 
-            if (exif is not null)
+            if (TryGetDateTime(exif, ExifDirectoryBase.TagDateTimeOriginal, out var dateTaken)
+                || TryGetDateTime(exif, ExifDirectoryBase.TagDateTimeDigitized, out dateTaken)
+                || TryGetDateTime(exif, ExifDirectoryBase.TagDateTime, out dateTaken)
+                || TryGetDateTime(ifd0, ExifDirectoryBase.TagDateTime, out dateTaken))
             {
-                if (TryGetDateTime(exif, ExifDirectoryBase.TagDateTimeOriginal, out var dateTaken)
-                    || TryGetDateTime(exif, ExifDirectoryBase.TagDateTimeDigitized, out dateTaken)
-                    || TryGetDateTime(exif, ExifDirectoryBase.TagDateTime, out dateTaken))
-                {
-                    if (dateTaken.Kind == DateTimeKind.Unspecified)
-                        dateTaken = DateTime.SpecifyKind(dateTaken, DateTimeKind.Local);
+                if (dateTaken.Kind == DateTimeKind.Unspecified)
+                    dateTaken = DateTime.SpecifyKind(dateTaken, DateTimeKind.Local);
 
-                    metadata.DateTakenUtc = dateTaken.ToUniversalTime();
-                }
+                metadata.DateTakenUtc = dateTaken.ToUniversalTime();
             }
 
-            metadata.CameraMake = ifd0?.GetString(ExifDirectoryBase.TagMake);
-            metadata.CameraModel = ifd0?.GetString(ExifDirectoryBase.TagModel);
+            metadata.CameraMake = GetDescription(ifd0, ExifDirectoryBase.TagMake) ?? GetDescription(directories, ExifDirectoryBase.TagMake);
+            metadata.CameraModel = GetDescription(ifd0, ExifDirectoryBase.TagModel) ?? GetDescription(directories, ExifDirectoryBase.TagModel);
+            metadata.LensModel = GetDescription(directories, ExifDirectoryBase.TagLensModel);
+            metadata.FocalLength = GetDescription(directories, ExifDirectoryBase.TagFocalLength);
+            metadata.FocalLength35Mm = GetDescription(directories, 41989);
+            metadata.SubjectDistance = GetDescription(directories, ExifDirectoryBase.TagSubjectDistance);
+            metadata.Flash = GetDescription(directories, ExifDirectoryBase.TagFlash);
+            metadata.ExposureTime = GetDescription(directories, ExifDirectoryBase.TagExposureTime);
+            metadata.FNumber = GetDescription(directories, ExifDirectoryBase.TagFNumber);
+            metadata.IsoSpeed = GetDescription(directories, ExifDirectoryBase.TagIsoEquivalent);
+            metadata.ExposureProgram = GetDescription(directories, ExifDirectoryBase.TagExposureProgram);
+            metadata.WhiteBalance = GetDescription(directories, ExifDirectoryBase.TagWhiteBalance);
+
+            var width = GetDescription(directories, 40962);
+            var height = GetDescription(directories, 40963);
+            if (!string.IsNullOrWhiteSpace(width) && !string.IsNullOrWhiteSpace(height))
+                metadata.Dimensions = $"{width} x {height}";
 
             if (gps is not null)
             {
@@ -46,6 +59,7 @@ public static class PhotoMetadataReader
                 metadata.Latitude = latitude;
                 metadata.Longitude = longitude;
             }
+
         }
         catch
         {
@@ -55,9 +69,27 @@ public static class PhotoMetadataReader
         return metadata;
     }
 
-    private static bool TryGetDateTime(object directory, int tag, out DateTime value)
+    private static string? GetDescription(MetadataExtractor.Directory? directory, int tag)
+    {
+        if (directory is null || !directory.ContainsTag(tag))
+            return null;
+
+        return directory.GetDescription(tag);
+    }
+
+    private static string? GetDescription(IEnumerable<MetadataExtractor.Directory> directories, int tag)
+    {
+        return directories
+            .Select(directory => GetDescription(directory, tag))
+            .FirstOrDefault(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static bool TryGetDateTime(MetadataExtractor.Directory? directory, int tag, out DateTime value)
     {
         value = default;
+
+        if (directory is null)
+            return false;
 
         var method = directory.GetType().GetMethod("TryGetDateTime", new[] { typeof(int), typeof(DateTime).MakeByRefType() });
         if (method is not null)
@@ -72,7 +104,13 @@ public static class PhotoMetadataReader
 
         var descriptionMethod = directory.GetType().GetMethod("GetDescription", new[] { typeof(int) });
         var raw = descriptionMethod?.Invoke(directory, new object[] { tag }) as string;
-        return DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal | DateTimeStyles.AllowWhiteSpaces, out value);
+        return DateTime.TryParseExact(
+                raw,
+                ["yyyy:MM:dd HH:mm:ss", "yyyy-MM-dd HH:mm:ss", "yyyy:MM:dd HH:mm:ssK"],
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AllowWhiteSpaces | DateTimeStyles.AssumeLocal,
+                out value)
+            || DateTime.TryParse(raw, CultureInfo.InvariantCulture, DateTimeStyles.AssumeLocal | DateTimeStyles.AllowWhiteSpaces, out value);
     }
 
     private static bool TryReadGpsCoordinate(object gpsDirectory, int coordinateTag, int referenceTag, out double coordinate)
@@ -123,6 +161,19 @@ public static class PhotoMetadataReader
 
         return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var result) ? result : 0d;
     }
+
+    private static int? ParsePixelDimension(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+            return null;
+
+        var digits = new string(value.SkipWhile(character => !char.IsDigit(character))
+            .TakeWhile(char.IsDigit)
+            .ToArray());
+        return int.TryParse(digits, NumberStyles.Integer, CultureInfo.InvariantCulture, out var result)
+            ? result
+            : null;
+    }
 }
 
 public sealed class AlbumPhotoMetadata
@@ -132,4 +183,17 @@ public sealed class AlbumPhotoMetadata
     public double? Longitude { get; set; }
     public string? CameraMake { get; set; }
     public string? CameraModel { get; set; }
+    public string? LensModel { get; set; }
+    public string? FocalLength { get; set; }
+    public string? FocalLength35Mm { get; set; }
+    public string? SubjectDistance { get; set; }
+    public string? Flash { get; set; }
+    public string? Dimensions { get; set; }
+    public string? ExposureTime { get; set; }
+    public string? FNumber { get; set; }
+    public string? IsoSpeed { get; set; }
+    public string? ExposureProgram { get; set; }
+    public string? WhiteBalance { get; set; }
+    public int? PixelWidth { get; set; }
+    public int? PixelHeight { get; set; }
 }

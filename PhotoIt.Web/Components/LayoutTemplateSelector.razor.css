@@ -1,13 +1,40 @@
 .template-selector {
-    max-width: 660px;
+    max-width: 100%;
+    width: 100%;
+    min-width: 0;
+    flex: 1 1 auto;
 }
 
 .template-selector .templates-grid {
     display: grid;
-    grid-template-columns: repeat(4, minmax(120px, 1fr));
+    grid-auto-flow: column;
+    grid-auto-columns: 100px;
+    grid-template-rows: auto;
+    justify-content: start;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
     gap: 10px;
-    max-height: 320px;
+    align-items: flex-start;
+    overflow-x: scroll;
+    overflow-y: hidden;
+    padding: 4px 4px 12px;
+    scrollbar-gutter: stable;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x;
+}
+
+.template-preview {
+    width: 100%;
     overflow: hidden;
+    border-radius: 6px;
+    background: #f0f0f0;
+}
+
+.template-preview svg {
+    display: block;
+    width: 100%;
+    height: auto;
 }
 
 .template-card {
@@ -20,7 +47,9 @@
     align-items: stretch;
     cursor: pointer;
     transition: box-shadow 0.12s ease, transform 0.08s ease;
-    min-height: 146px;
+    width: 100px;
+    min-width: 100px;
+    min-height: 0;
 }
 
 .template-card:hover {
@@ -43,7 +72,7 @@
 
 .template-name {
     margin-top: 8px;
-    font-size: 0.8rem;
+    font-size: 0.65rem;
     text-align: center;
     color: #222;
     line-height: 1.2;

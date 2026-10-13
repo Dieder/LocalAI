@@ -118,13 +118,14 @@ else
                                         Editable="true"
                                         OnPhotoDragStarted="HandleDragStarted"
                                         OnPhotoDropped="HandleDropped"
-                                        OnPhotoRemoved="HandleRemoved" />
+                                        OnPhotoRemoved="HandleRemoved"
+                                        OnZoomChanged="HandleZoomChanged" />
                 }
                 else if (selectedPage is not null)
                 {
                     <div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
-                        <div class="d-flex align-items-center gap-2">
-                            <label class="form-label mb-0" for="template-select">Template</label>
+                        <div class="layout-design-selector">
+                            <label class="form-label mb-1" for="template-select">Designs</label>
                             @if (layoutTemplates == null)
                             {
                                 <div>Loading templates...</div>
@@ -148,7 +149,8 @@ else
                                         Editable="true"
                                         OnPhotoDragStarted="HandleDragStarted"
                                         OnPhotoDropped="HandleDropped"
-                                        OnPhotoRemoved="HandleRemoved" />
+                                        OnPhotoRemoved="HandleRemoved"
+                                        OnZoomChanged="HandleZoomChanged" />
                 }
             </main>
         </div>
@@ -166,7 +168,8 @@ else
     private int selectedPageNumber;
     private LayoutPage? selectedPage;
     private string? draggedPhotoId;
-    private int? draggedFromSlot;
+    private int? draggedFromSlotCol;
+    private int? draggedFromSlotRow;
     private bool draggedFromTitlePage;
     private int? draggedFromPageNumber;
     private bool isSaving;
@@ -180,7 +183,9 @@ else
             .Select(group => new PhotoDateGroup(
                 group.Key,
                 group.Key.ToString("dddd d MMMM yyyy"),
-                group.OrderByDescending(GetPhotoSortDate).ToList()));
+                group.OrderByDescending(GetPhotoSortDate)
+                    .ThenBy(photo => photo.OriginalFileName, StringComparer.OrdinalIgnoreCase)
+                    .ToList()));
 
     private static DateTime GetPhotoGroupDate(AlbumPhoto photo)
     {
@@ -253,7 +258,7 @@ else
         {
             Number = nextNumber,
             TemplateId = LayoutTemplateIds.OneBig,
-            Photos = LayoutTemplates.CreateEmptySlots(LayoutTemplateIds.OneBig),
+            Photos = LayoutTemplates.Get(LayoutTemplateIds.OneBig).Slots.ToList(),
         };
         albumLayout.Pages.Add(page);
         SelectPage(nextNumber);
@@ -298,13 +303,14 @@ else
             return;
 
         selectedPage.TemplateId = templateId;
-        selectedPage.Photos = LayoutTemplates.MigratePhotos(templateId, selectedPage.Photos);
+        selectedPage.Photos = LayoutTemplates.MigratePhotos(templateId, selectedPage.Photos).ToList();
     }
 
     private void HandleLibraryDragStart(string photoId)
     {
         draggedPhotoId = photoId;
-        draggedFromSlot = null;
+        draggedFromSlotCol = null;
+        draggedFromSlotRow = null;
         draggedFromTitlePage = false;
         draggedFromPageNumber = null;
     }
@@ -312,9 +318,17 @@ else
     private Task HandleDragStarted(LayoutDragStartEventArgs args)
     {
         draggedPhotoId = args.PhotoId;
-        draggedFromSlot = args.FromSlotNumber;
+        draggedFromSlotCol = args.slotCol;
+        draggedFromSlotRow = args.slotRow;
         draggedFromTitlePage = args.IsTitlePage;
         draggedFromPageNumber = args.FromPageNumber;
+        return Task.CompletedTask;
+    }
+
+    private Task HandleZoomChanged(LayoutZoomChangedEventArgs args)
+    {
+        layoutSaved = false;
+        statusMessage = "Zoom changed. Save the layout to persist it.";
         return Task.CompletedTask;
     }
 
@@ -325,15 +339,16 @@ else
 
         if (args.IsTitlePage)
         {
-            if (draggedFromTitlePage && draggedFromSlot == 0)
+            if (draggedFromTitlePage && draggedFromSlotCol == 0 && draggedFromSlotRow == 0)
             {
                 ClearDragState();
                 return Task.CompletedTask;
             }
 
             albumLayout!.CoverPhotoId = draggedPhotoId;
-            if (draggedFromPageNumber is int pageNumber && pageNumber > 0)
-                ClearSlotOnPage(pageNumber, draggedFromSlot!.Value);
+            if (draggedFromPageNumber is int pageNumber && pageNumber > 0 &&
+                draggedFromSlotCol is int sourceCol && draggedFromSlotRow is int sourceRow)
+                ClearSlotOnPage(pageNumber, sourceCol, sourceRow);
 
             ClearDragState();
             return Task.CompletedTask;
@@ -345,9 +360,18 @@ else
             return Task.CompletedTask;
         }
 
-        var targetSlot = selectedPage.Photos.FirstOrDefault(slot => slot.Number == args.SlotNumber);
+        var targetSlot = selectedPage.Photos.FirstOrDefault(slot =>
+            slot.Col == args.slotCol && slot.Row == args.slotRow);
         if (targetSlot is null)
         {
+            ClearDragState();
+            return Task.CompletedTask;
+        }
+
+        if (photoLookup.TryGetValue(draggedPhotoId, out var draggedPhoto)
+            && !PhotoType.IsCompatible(targetSlot.Type.Id, draggedPhoto.PixelWidth, draggedPhoto.PixelHeight))
+        {
+            errorMessage = $"This photo orientation is not compatible with the {targetSlot.Type.Name.ToLowerInvariant()} slot.";
             ClearDragState();
             return Task.CompletedTask;
         }
@@ -366,20 +390,39 @@ else
             return Task.CompletedTask;
         }
 
-        if (draggedFromSlot is null)
+        if (draggedFromSlotCol is null)
         {
             targetSlot.PhotoId = draggedPhotoId;
         }
-        else if (draggedFromSlot == args.SlotNumber)
+        else if (draggedFromSlotCol == args.slotCol && draggedFromSlotRow == args.slotRow)
         {
             ClearDragState();
             return Task.CompletedTask;
         }
         else
         {
-            var sourceSlot = selectedPage.Photos.FirstOrDefault(slot => slot.Number == draggedFromSlot.Value);
+            var sourceSlot = selectedPage.Photos.FirstOrDefault(slot =>
+                slot.Col == draggedFromSlotCol && slot.Row == draggedFromSlotRow);
             if (sourceSlot is null)
             {
+                ClearDragState();
+                return Task.CompletedTask;
+            }
+
+            if (sourceSlot.PhotoId is not null
+                && photoLookup.TryGetValue(sourceSlot.PhotoId, out var sourcePhoto)
+                && !PhotoType.IsCompatible(targetSlot.Type.Id, sourcePhoto.PixelWidth, sourcePhoto.PixelHeight))
+            {
+                errorMessage = $"The source photo orientation is not compatible with the {targetSlot.Type.Name.ToLowerInvariant()} slot.";
+                ClearDragState();
+                return Task.CompletedTask;
+            }
+
+            if (targetSlot.PhotoId is not null
+                && photoLookup.TryGetValue(targetSlot.PhotoId, out var targetPhoto)
+                && !PhotoType.IsCompatible(sourceSlot.Type.Id, targetPhoto.PixelWidth, targetPhoto.PixelHeight))
+            {
+                errorMessage = "The photos cannot be swapped because their orientations do not match the slots.";
                 ClearDragState();
                 return Task.CompletedTask;
             }
@@ -402,28 +445,29 @@ else
         if (selectedPage is null)
             return Task.CompletedTask;
 
-        ClearSlot(selectedPage, args.SlotNumber);
+        ClearSlot(selectedPage, args.slotCol, args.slotRow);
         return Task.CompletedTask;
     }
 
-    private static void ClearSlot(LayoutPage page, int slotNumber)
+    private static void ClearSlot(LayoutPage page, int slotCol, int slotRow)
     {
-        var slot = page.Photos.FirstOrDefault(item => item.Number == slotNumber);
+        var slot = page.Photos.FirstOrDefault(item => item.Col == slotCol && item.Row == slotRow);
         if (slot is not null)
             slot.PhotoId = null;
     }
 
-    private void ClearSlotOnPage(int pageNumber, int slotNumber)
+    private void ClearSlotOnPage(int pageNumber, int slotCol, int slotRow)
     {
         var page = albumLayout!.Pages.FirstOrDefault(item => item.Number == pageNumber);
         if (page is not null)
-            ClearSlot(page, slotNumber);
+            ClearSlot(page, slotCol, slotRow);
     }
 
     private void ClearDragState()
     {
         draggedPhotoId = null;
-        draggedFromSlot = null;
+        draggedFromSlotCol = null;
+        draggedFromSlotRow = null;
         draggedFromTitlePage = false;
         draggedFromPageNumber = null;
     }

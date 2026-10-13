@@ -23,6 +23,11 @@
             Longitude = null;
             Svg = "";
         }
+
+        internal bool IsValid()
+        {
+            return HasGeoPoint() && !string.IsNullOrEmpty(Place);
+        }
     }
 
 }

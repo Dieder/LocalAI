@@ -7,6 +7,11 @@
         public TransportType Transport { get; set; }
 
         public bool IsEditing { get; set; } = false;
+
+        public bool IsValid()
+        {
+            return From.IsValid() && To.IsValid();
+        }
     }
 
     

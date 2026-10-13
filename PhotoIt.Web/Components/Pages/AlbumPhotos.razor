@@ -86,9 +86,22 @@ else
         </div>
     }
 
-    @if (photos.Count == 0)
+    @if (photos.Count > 0)
     {
-        <p class="text-muted">No photos uploaded yet.</p>
+        <div class="mb-4">
+            <label class="form-label" for="photo-tag-filter">Filter photos by tag</label>
+            <input id="photo-tag-filter"
+                   class="form-control"
+                   type="search"
+                   placeholder="Enter a tag"
+                   @bind="tagFilter"
+                   @bind:event="oninput" />
+        </div>
+    }
+
+    @if (!FilteredPhotos.Any())
+    {
+        <p class="text-muted">@(photos.Count == 0 ? "No photos uploaded yet." : "No photos match the selected tag.")</p>
     }
     else
     {
@@ -101,7 +114,27 @@ else
                     {
                         <div class="col">
                             <article class="card h-100 shadow-sm">
-                                <img class="card-img-top" src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" style="height: 180px; object-fit: cover;" />
+                                <div class="photo-exif-container">
+                                    <img class="card-img-top" src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" style="height: 180px; object-fit: cover;" />
+                                    @if (HasExifDetails(photo))
+                                    {
+                                        <div class="photo-exif-popup" role="tooltip">
+                                            <strong>EXIF details</strong>
+                                            @if (!string.IsNullOrWhiteSpace(photo.CameraMake) || !string.IsNullOrWhiteSpace(photo.CameraModel))
+                                            {
+                                                <span>@GetCameraDisplay(photo)</span>
+                                            }
+                                            @foreach (var detail in GetExifDetails(photo))
+                                            {
+                                                <span><b>@detail.Label:</b> @detail.Value</span>
+                                            }
+                                            @if (photo.Latitude is not null && photo.Longitude is not null)
+                                            {
+                                                <span><b>Location:</b> @photo.Latitude.Value.ToString("F6"), @photo.Longitude.Value.ToString("F6")</span>
+                                            }
+                                        </div>
+                                    }
+                                </div>
                                 <div class="card-body">
                                     <p class="card-text text-truncate" title="@photo.OriginalFileName">@photo.OriginalFileName</p>
                                     <small class="text-muted d-block">@FormatLength(photo.Length)</small>
@@ -154,8 +187,10 @@ else
 
     private Album? album;
     private IReadOnlyList<AlbumPhoto> photos = [];
+    private string tagFilter = string.Empty;
     private bool isUploading;
     private bool isIndexing;
+    private bool exifRefreshStarted;
     private bool canEdit;
     private string? errorMessage;
     private string? indexMessage;
@@ -165,13 +200,21 @@ else
     private readonly HashSet<string> indexingPhotoIds = new(StringComparer.OrdinalIgnoreCase);
     private readonly CancellationTokenSource pageCts = new();
     private IEnumerable<DatePhotoGroup> PhotoGroups =>
-        photos
+        FilteredPhotos
             .GroupBy(GetPhotoGroupDate)
             .OrderByDescending(group => group.Key)
             .Select(group => new DatePhotoGroup(
                 group.Key,
                 group.Key.ToString("dddd d MMMM yyyy"),
-                group.OrderByDescending(GetPhotoSortDate).ToList()));
+                group.OrderByDescending(GetPhotoSortDate)
+                    .ThenBy(photo => photo.OriginalFileName, StringComparer.OrdinalIgnoreCase)
+                    .ToList()));
+
+    private IEnumerable<AlbumPhoto> FilteredPhotos =>
+        string.IsNullOrWhiteSpace(tagFilter)
+            ? photos
+            : photos.Where(photo => photo.Tags.Any(tag =>
+                tag.Contains(tagFilter.Trim(), StringComparison.OrdinalIgnoreCase)));
 
     private static DateTime GetPhotoGroupDate(AlbumPhoto photo)
     {
@@ -196,7 +239,45 @@ else
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         canEdit = CurrentUserHelper.GetUserId(authState.User) == album?.UserId;
 
+        _ = RefreshExifMetadataAsync();
         _ = WaitForModelAsync();
+    }
+
+    private async Task RefreshExifMetadataAsync()
+    {
+        if (exifRefreshStarted || album is null)
+            return;
+
+        exifRefreshStarted = true;
+        var photosToRefresh = photos.Where(photo => !HasExtendedExif(photo)).ToList();
+        var changed = false;
+
+        foreach (var photo in photosToRefresh)
+        {
+            try
+            {
+                var download = await Storage.DownloadAsync(photo.BlobName);
+                await using var content = download.Content;
+                using var memory = new MemoryStream();
+                await content.CopyToAsync(memory);
+                var metadata = PhotoMetadataReader.Extract(memory.ToArray());
+                if (!HasMetadataValues(metadata))
+                    continue;
+
+                ApplyMetadata(photo, metadata);
+                Catalog.UpdatePhoto(photo);
+                changed = true;
+            }
+            catch
+            {
+            }
+        }
+
+        if (changed)
+        {
+            LoadPhotos();
+            await InvokeAsync(StateHasChanged);
+        }
     }
 
     private async Task WaitForModelAsync()
@@ -251,12 +332,25 @@ else
                     OriginalFileName = file.Name,
                     ContentType = file.ContentType,
                     Length = file.Size,
+                    PixelWidth = metadata.PixelWidth,
+                    PixelHeight = metadata.PixelHeight,
                     UploadedUtc = DateTime.UtcNow,
                     DateTakenUtc = metadata.DateTakenUtc,
                     Latitude = metadata.Latitude,
                     Longitude = metadata.Longitude,
                     CameraMake = metadata.CameraMake,
                     CameraModel = metadata.CameraModel,
+                    LensModel = metadata.LensModel,
+                    FocalLength = metadata.FocalLength,
+                    FocalLength35Mm = metadata.FocalLength35Mm,
+                    SubjectDistance = metadata.SubjectDistance,
+                    Flash = metadata.Flash,
+                    Dimensions = metadata.Dimensions,
+                    ExposureTime = metadata.ExposureTime,
+                    FNumber = metadata.FNumber,
+                    IsoSpeed = metadata.IsoSpeed,
+                    ExposureProgram = metadata.ExposureProgram,
+                    WhiteBalance = metadata.WhiteBalance,
                 };
 
                 Catalog.AddPhoto(photo);
@@ -379,6 +473,82 @@ else
             .ToArray();
 
         return camera.Length == 0 ? "Camera unknown" : string.Join(" ", camera);
+    }
+
+    private static bool HasExifDetails(AlbumPhoto photo)
+    {
+        return photo.Latitude is not null || photo.Longitude is not null
+            || new[]
+            {
+                photo.CameraMake, photo.CameraModel, photo.LensModel, photo.FocalLength,
+                photo.FocalLength35Mm, photo.SubjectDistance, photo.Flash, photo.Dimensions,
+                photo.ExposureTime, photo.FNumber, photo.IsoSpeed, photo.ExposureProgram,
+                photo.WhiteBalance
+            }.Any(value => !string.IsNullOrWhiteSpace(value));
+    }
+
+    private static bool HasExtendedExif(AlbumPhoto photo)
+    {
+        return !string.IsNullOrWhiteSpace(photo.LensModel)
+            || !string.IsNullOrWhiteSpace(photo.FocalLength)
+            || !string.IsNullOrWhiteSpace(photo.Dimensions)
+            || !string.IsNullOrWhiteSpace(photo.ExposureTime)
+            || !string.IsNullOrWhiteSpace(photo.FNumber)
+            || !string.IsNullOrWhiteSpace(photo.IsoSpeed);
+    }
+
+    private static bool HasMetadataValues(AlbumPhotoMetadata metadata)
+    {
+        return metadata.DateTakenUtc is not null
+            || metadata.Latitude is not null
+            || metadata.Longitude is not null
+            || !string.IsNullOrWhiteSpace(metadata.LensModel)
+            || !string.IsNullOrWhiteSpace(metadata.FocalLength)
+            || !string.IsNullOrWhiteSpace(metadata.Dimensions);
+    }
+
+    private static void ApplyMetadata(AlbumPhoto photo, AlbumPhotoMetadata metadata)
+    {
+        photo.DateTakenUtc ??= metadata.DateTakenUtc;
+        photo.Latitude ??= metadata.Latitude;
+        photo.Longitude ??= metadata.Longitude;
+        photo.CameraMake ??= metadata.CameraMake;
+        photo.CameraModel ??= metadata.CameraModel;
+        photo.LensModel ??= metadata.LensModel;
+        photo.FocalLength ??= metadata.FocalLength;
+        photo.FocalLength35Mm ??= metadata.FocalLength35Mm;
+        photo.SubjectDistance ??= metadata.SubjectDistance;
+        photo.Flash ??= metadata.Flash;
+        photo.Dimensions ??= metadata.Dimensions;
+        photo.ExposureTime ??= metadata.ExposureTime;
+        photo.FNumber ??= metadata.FNumber;
+        photo.IsoSpeed ??= metadata.IsoSpeed;
+        photo.ExposureProgram ??= metadata.ExposureProgram;
+        photo.WhiteBalance ??= metadata.WhiteBalance;
+        photo.PixelWidth ??= metadata.PixelWidth;
+        photo.PixelHeight ??= metadata.PixelHeight;
+    }
+
+    private static IEnumerable<(string Label, string Value)> GetExifDetails(AlbumPhoto photo)
+    {
+        var details = new (string Label, string? Value)[]
+        {
+            ("Lens", photo.LensModel),
+            ("Focal length", photo.FocalLength),
+            ("35mm equivalent", photo.FocalLength35Mm),
+            ("Focal distance", photo.SubjectDistance),
+            ("Flash", photo.Flash),
+            ("Dimensions", photo.Dimensions),
+            ("Exposure", photo.ExposureTime),
+            ("Aperture", photo.FNumber),
+            ("ISO", photo.IsoSpeed),
+            ("Exposure program", photo.ExposureProgram),
+            ("White balance", photo.WhiteBalance)
+        };
+
+        return details
+            .Where(detail => !string.IsNullOrWhiteSpace(detail.Value))
+            .Select(detail => (detail.Label, detail.Value!));
     }
 
     public ValueTask DisposeAsync()

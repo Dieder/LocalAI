@@ -31,12 +31,25 @@ public sealed class AlbumPhoto
     public string OriginalFileName { get; set; } = string.Empty;
     public string ContentType { get; set; } = "application/octet-stream";
     public long Length { get; set; }
+    public int? PixelWidth { get; set; }
+    public int? PixelHeight { get; set; }
     public DateTime UploadedUtc { get; set; } = DateTime.UtcNow;
     public DateTime? DateTakenUtc { get; set; }
     public double? Latitude { get; set; }
     public double? Longitude { get; set; }
     public string? CameraMake { get; set; }
     public string? CameraModel { get; set; }
+    public string? LensModel { get; set; }
+    public string? FocalLength { get; set; }
+    public string? FocalLength35Mm { get; set; }
+    public string? SubjectDistance { get; set; }
+    public string? Flash { get; set; }
+    public string? Dimensions { get; set; }
+    public string? ExposureTime { get; set; }
+    public string? FNumber { get; set; }
+    public string? IsoSpeed { get; set; }
+    public string? ExposureProgram { get; set; }
+    public string? WhiteBalance { get; set; }
     public string Description { get; set; } = string.Empty;
     public List<string> Tags { get; set; } = [];
     public DateTime? IndexedUtc { get; set; }
@@ -175,7 +188,11 @@ public sealed class AlbumCatalog : IDisposable
 
     public ViewableAlbumLayout? GetLayout(string albumId)
     {
-        return _layouts.FindById(albumId);
+        var layout = _layouts.FindById(albumId);
+        if (layout is not null)
+            NormalizeLayout(layout);
+
+        return layout;
     }
 
     public bool HasLayout(string albumId)
@@ -189,6 +206,7 @@ public sealed class AlbumCatalog : IDisposable
         if (string.IsNullOrWhiteSpace(layout.AlbumId))
             throw new ArgumentException("AlbumId is required.", nameof(layout));
 
+        NormalizeLayout(layout);
         layout.UpdatedUtc = DateTime.UtcNow;
         _layouts.Upsert(layout);
         Touch(layout.AlbumId);
@@ -207,6 +225,34 @@ public sealed class AlbumCatalog : IDisposable
     private static string NormalizeFolderName(string value)
     {
         return value.Trim().ToUpperInvariant();
+    }
+
+    private static void NormalizeLayout(ViewableAlbumLayout layout)
+    {
+        layout.Pages ??= [];
+
+        foreach (var page in layout.Pages)
+        {
+            page.Photos ??= [];
+
+            foreach (var slot in page.Photos)
+            {
+                if (!double.IsFinite(slot.PositionX))
+                    slot.PositionX = 50d;
+                else
+                    slot.PositionX = Math.Clamp(slot.PositionX, 0d, 100d);
+
+                if (!double.IsFinite(slot.PositionY))
+                    slot.PositionY = 50d;
+                else
+                    slot.PositionY = Math.Clamp(slot.PositionY, 0d, 100d);
+
+                if (!double.IsFinite(slot.Zoom))
+                    slot.Zoom = 1d;
+                else
+                    slot.Zoom = Math.Clamp(slot.Zoom, 0.5d, 3d);
+            }
+        }
     }
 
     private void NormalizeLegacyAnalysis(AlbumPhoto photo)

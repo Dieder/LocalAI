@@ -161,14 +161,24 @@
         {
             throw new InvalidOperationException("AlbumId parameter is required.");
         }
+
         album = Catalog.Get(AlbumId) ?? throw new InvalidDataException("Album not found");
         Model = album.TripGraph ?? new TripGraph();
-        Model.Legs.Add(new RouteLeg
+        Model.Legs.Where(x=>x.IsValid()).ToList().ForEach(leg =>
         {
-            From = new RoutePoint(),
-            To = new RoutePoint(),
-            Transport = TransportType.Car
+            leg.IsEditing = false;           
         });
+
+        if (Model.Legs.Count == 0)
+        {
+            Model.Legs.Add(new RouteLeg
+                {
+                IsEditing = true,
+                    From = new RoutePoint(),
+                    To = new RoutePoint(),
+                    Transport = TransportType.Car
+                });
+        }
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -218,10 +228,14 @@
 
     private async Task RefreshMap()
     {
-        if (Model.Legs.All(leg => leg.From.HasGeoPoint() && leg.To.HasGeoPoint()))
+        if (Model.Legs.All(leg => leg.IsValid()))
         {
             // save Model to database or perform any other necessary actions here
             Model.UpdatedUtc = DateTime.UtcNow;
+            foreach(var leg in Model.Legs.Where(x=>x.IsEditing))
+            {
+                leg.IsEditing = false;
+            }
             album.TripGraph = Model;
             Catalog.Update(album);
             await JS.InvokeVoidAsync(

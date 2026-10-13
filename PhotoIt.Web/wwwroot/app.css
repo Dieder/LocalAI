@@ -54,3 +54,32 @@ h1:focus {
 .form-floating > .form-control-plaintext:focus::placeholder, .form-floating > .form-control:focus::placeholder {
     text-align: start;
 }
+
+.photo-exif-container {
+    position: relative;
+}
+
+.photo-exif-container:focus-within .photo-exif-popup,
+.photo-exif-container:hover .photo-exif-popup {
+    display: flex;
+}
+
+.photo-exif-popup {
+    display: none;
+    position: absolute;
+    z-index: 10;
+    top: .5rem;
+    left: .5rem;
+    right: .5rem;
+    max-height: 24rem;
+    min-width: 100%;
+    width: max-content;
+    overflow-y: auto;
+    flex-direction: column;
+    gap: .2rem;
+    padding: .65rem;
+    color: #fff;
+    background: rgb(0 0 0 / 82%);
+    border-radius: .25rem;
+    font-size: .8rem;
+}

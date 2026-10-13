@@ -1,4 +1,5 @@
 @using PhotoIt.Data
+@inject IJSRuntime JS
 
 <div class="layout-page-renderer @(IsTitlePage ? "title-page" : $"template-{TemplateId.ToLowerInvariant()}")">
     @if (IsTitlePage)
@@ -20,7 +21,7 @@
                 {
                     <div class="slot-photo @(Editable ? "draggable" : "")"
                          draggable="@Editable"
-                         @ondragstart="() => HandleSlotDragStart(0, CoverPhotoId!)">
+                         @ondragstart="() => HandleSlotDragStart(0, 0, CoverPhotoId!)">
                         <img src="@GetPhotoUrl(CoverPhotoId!)" alt="Cover photo" />
                         @if (Editable)
                         {
@@ -37,33 +38,69 @@
     }
     else
     {
-        @foreach (var rectangle in Template.Rectangles.OrderBy(r => r.Order))
-        {
-            var slot = GetSlot(rectangle.Number);
-            var photoId = slot?.PhotoId;
-            <div class="layout-slot slot-@rectangle.Number size-@rectangle.Size.ToLowerInvariant() @(Editable ? "editable-slot" : "")"
-                 @ondragover="AllowDrop"
-                 @ondrop="() => HandleSlotDrop(rectangle.Number)"
-                 @ondrop:preventDefault
-                 @ondragover:preventDefault>
-                @if (!string.IsNullOrWhiteSpace(photoId))
-                {
-                    <div class="slot-photo @(Editable ? "draggable" : "")"
-                         draggable="@Editable"
-                         @ondragstart="() => HandleSlotDragStart(rectangle.Number, photoId!)">
-                        <img src="@GetPhotoUrl(photoId!)" alt="@GetPhotoName(photoId!)" />
-                        @if (Editable)
-                        {
-                            <button type="button" class="slot-remove btn btn-sm btn-dark" @onclick="() => HandleSlotRemove(rectangle.Number)" @onclick:stopPropagation="true">×</button>
-                        }
+        <div class="layout-page-renderer"
+            style="--cols: @Template.Columns; --rows: @Template.Rows; --page-ratio: @PageAspectRatio;">
+            @foreach (var slot in Template.Slots.OrderBy(s => s.Row).ThenBy(s => s.Col))
+            {
+                var placedSlot = Photos.FirstOrDefault(item => item.Col == slot.Col && item.Row == slot.Row);
+                var photoId = placedSlot?.PhotoId;
+
+                <div class="layout-slot size-@slot.Type.Id"
+                     style="grid-column: @slot.Col / span @slot.ColSpan;
+                    grid-row:    @slot.Row / span @slot.RowSpan;"
+                     @ondragover="AllowDrop"
+                     @ondrop="() => HandleSlotDrop(slot.Col, slot.Row)"
+                     @ondrop:preventDefault
+                     @ondragover:preventDefault>
+                    <div class="slot-frame size-@slot.Type.Id @(IsFullPageSlot(slot) ? "full-page-slot" : "")"
+                         style="--slot-ratio: @slot.Type.AspectRatio;">
+
+                    @if (!string.IsNullOrWhiteSpace(photoId))
+                    {
+                         <div class="slot-photo @(Editable ? "draggable" : "")"
+                             draggable="@Editable"
+                             @ondragstart="() => HandleSlotDragStart(slot.Col, slot.Row, photoId!)"
+                             @onpointerdown="(args) => BeginPhotoPositionDrag(args, placedSlot ?? slot)"
+                             @onpointermove="HandlePhotoPositionMove"
+                             @onpointerup="EndPhotoPositionDrag"
+                             @onpointercancel="EndPhotoPositionDrag"
+                             @onpointerdown:preventDefault="true">
+
+                             <img src="@GetPhotoUrl(photoId!)"
+                                 alt="@GetPhotoName(photoId!)"
+                                 class="photo-img"
+                                  style="object-position: @(placedSlot?.PositionX ?? 50)% @(placedSlot?.PositionY ?? 50)%; --photo-zoom: @GetZoom(placedSlot);" />
+
+                             @if (Editable)
+                             {
+                                 <div class="zoom-controls" @onclick:stopPropagation="true">
+                                     <button type="button" class="btn btn-sm btn-dark" @onclick="() => ChangeZoom(placedSlot!, -ZoomStep)" disabled="@(placedSlot!.Zoom <= MinZoom)">−</button>
+                                     <span class="zoom-level">@((placedSlot!.Zoom * 100).ToString("0"))%</span>
+                                     <button type="button" class="btn btn-sm btn-dark" @onclick="() => ChangeZoom(placedSlot!, ZoomStep)" disabled="@(placedSlot!.Zoom >= MaxZoom)">+</button>
+                                     <button type="button" class="btn btn-sm btn-outline-light" @onclick="() => ChangeZoom(placedSlot!, MinZoom - placedSlot.Zoom)">Reset</button>
+                                 </div>
+                             }
+
+                            @if (Editable)
+                            {
+                                <button type="button"
+                                        class="slot-remove btn btn-sm btn-dark"
+                                        @onclick="() => HandleSlotRemove(slot.Col, slot.Row)"
+                                        @onclick:stopPropagation="true">
+                                    ×
+                                </button>
+                            }
+                        </div>
+                    }
+                    else if (Editable)
+                    {
+                        <span class="slot-placeholder">Drop photo</span>
+                    }
                     </div>
                 }
-                else if (Editable)
-                {
-                    <span class="slot-placeholder">Drop photo</span>
-                }
-            </div>
-        }
+                </div>
+            }
+        </div>
     }
 </div>
 
@@ -78,7 +115,7 @@
     public string TemplateId { get; set; } = LayoutTemplateIds.OneBig;
 
     [Parameter]
-    public IReadOnlyList<PagePhotoSlot> Photos { get; set; } = [];
+    public IReadOnlyList<PhotoSlot> Photos { get; set; } = [];
 
     [Parameter]
     public IReadOnlyDictionary<string, AlbumPhoto> PhotoLookup { get; set; } = new Dictionary<string, AlbumPhoto>();
@@ -105,14 +142,49 @@
     public EventCallback<LayoutRemoveEventArgs> OnPhotoRemoved { get; set; }
 
     [Parameter]
+    public EventCallback<LayoutZoomChangedEventArgs> OnZoomChanged { get; set; }
+
+    [Parameter]
     public int? PageNumber { get; set; }
 
-    private LayoutTemplate Template => LayoutTemplates.Get(TemplateId);
+    private LayoutTemplate? Template => LayoutTemplates.Get(TemplateId);
+    private double PageAspectRatio => Template is { } template
+        ? GetPageAspectRatio(template)
+        : 1d;
 
-    private PagePhotoSlot? GetSlot(int number)
+    private static double GetPageAspectRatio(LayoutTemplate template)
     {
-        return Photos.FirstOrDefault(slot => slot.Number == number);
+        if (template.Slots.Count == template.Columns * template.Rows
+            && template.Slots.All(slot => slot.ColSpan == 1 && slot.RowSpan == 1)
+            && template.Slots.Select(slot => slot.Type.Id).Distinct(StringComparer.OrdinalIgnoreCase).Count() == 1)
+        {
+            return template.Columns * template.Slots[0].Type.AspectRatio / template.Rows;
+        }
+
+        if (template.Slots.Count == 1
+            && template.Slots[0].ColSpan == template.Columns
+            && template.Slots[0].RowSpan == template.Rows)
+        {
+            return template.Slots[0].Type.AspectRatio;
+        }
+
+        return template.Columns / (double)template.Rows;
     }
+
+    private static bool IsFullPageSlot(PhotoSlot slot) =>
+        slot.ColSpan > 1 || slot.RowSpan > 1 || slot.Type.Id is "paginaL";
+    private const double ZoomStep = 0.25d;
+    private const double MinZoom = 0.5d;
+    private const double MaxZoom = 3d;
+    private PhotoSlot? activePositionSlot;
+    private double activePositionStartX;
+    private double activePositionStartY;
+    private double activePositionWidth;
+    private double activePositionHeight;
+    private double activePositionPointerX;
+    private double activePositionPointerY;
+
+    
 
     private string GetPhotoUrl(string photoId)
     {
@@ -128,28 +200,73 @@
 
     private static void AllowDrop(DragEventArgs _) { }
 
-    private Task HandleSlotDragStart(int slotNumber, string photoId)
+    private async Task BeginPhotoPositionDrag(PointerEventArgs args, PhotoSlot slot)
     {
-        return OnPhotoDragStarted.InvokeAsync(new LayoutDragStartEventArgs(photoId, slotNumber, IsTitlePage, PageNumber));
+        if (!Editable || string.IsNullOrWhiteSpace(slot.PhotoId))
+            return;
+
+        var size = await JS.InvokeAsync<SlotSize>("layoutEditor.getElementSizeAtPoint", args.ClientX, args.ClientY);
+        activePositionSlot = slot;
+        activePositionStartX = slot.PositionX;
+        activePositionStartY = slot.PositionY;
+        activePositionWidth = Math.Max(1d, size.Width);
+        activePositionHeight = Math.Max(1d, size.Height);
+        activePositionPointerX = args.ClientX;
+        activePositionPointerY = args.ClientY;
     }
 
-    private Task HandleSlotDrop(int slotNumber)
+    private void HandlePhotoPositionMove(PointerEventArgs args)
     {
-        return OnPhotoDropped.InvokeAsync(new LayoutDropEventArgs(slotNumber, IsTitlePage));
+        if (activePositionSlot is null || args.Buttons == 0)
+            return;
+
+        activePositionSlot.PositionX = Clamp(activePositionStartX +
+            (args.ClientX - activePositionPointerX) / activePositionWidth * 100d);
+        activePositionSlot.PositionY = Clamp(activePositionStartY +
+            (args.ClientY - activePositionPointerY) / activePositionHeight * 100d);
+        StateHasChanged();
+    }
+
+    private void EndPhotoPositionDrag(PointerEventArgs _)
+    {
+        activePositionSlot = null;
+    }
+
+    private static double Clamp(double value) => Math.Clamp(value, 0d, 100d);
+
+    private static string GetZoom(PhotoSlot? slot) =>
+        (slot?.Zoom ?? 1d).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private sealed record SlotSize(double Width, double Height);
+
+    private Task HandleSlotDragStart(int slotCol, int slotRow, string photoId)
+    {
+        return OnPhotoDragStarted.InvokeAsync(new LayoutDragStartEventArgs(photoId, slotCol, slotRow, IsTitlePage, PageNumber));
+    }
+
+    private Task HandleSlotDrop(int slotCol, int slotRow)
+    {
+        return OnPhotoDropped.InvokeAsync(new LayoutDropEventArgs(slotCol, slotRow, IsTitlePage));
     }
 
     private Task HandleCoverDrop()
     {
-        return OnPhotoDropped.InvokeAsync(new LayoutDropEventArgs(0, true));
+        return OnPhotoDropped.InvokeAsync(new LayoutDropEventArgs(0, 0, true));
     }
 
-    private Task HandleSlotRemove(int slotNumber)
+    private Task HandleSlotRemove(int slotCol, int slotRow)
     {
-        return OnPhotoRemoved.InvokeAsync(new LayoutRemoveEventArgs(slotNumber, false));
+        return OnPhotoRemoved.InvokeAsync(new LayoutRemoveEventArgs(slotCol, slotRow, false));
+    }
+
+    private Task ChangeZoom(PhotoSlot slot, double delta)
+    {
+        slot.Zoom = Math.Clamp(Math.Round(slot.Zoom + delta, 2), MinZoom, MaxZoom);
+        return OnZoomChanged.InvokeAsync(new LayoutZoomChangedEventArgs(slot.Col, slot.Row, IsTitlePage, slot.Zoom));
     }
 
     private Task HandleCoverRemove()
     {
-        return OnPhotoRemoved.InvokeAsync(new LayoutRemoveEventArgs(0, true));
+        return OnPhotoRemoved.InvokeAsync(new LayoutRemoveEventArgs(0, 0, true));
     }
 }

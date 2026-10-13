@@ -13,20 +13,17 @@
             @foreach (var template in Templates)
             {
                 var isSelected = template.Id == SelectedTemplateId;
+                var svg = template.ToSvg();
                 <div class="template-card @(isSelected ? "selected" : "")"
                      role="button"
                      tabindex="0"
                      @onclick="() => SelectTemplate(template.Id)"
                      @onkeypress="(e) => OnKeyPress(e, template.Id)">
 
-                    <svg viewBox="0 0 100 100" class="template-preview-svg" role="img" aria-label="@template.Name">
-                        @foreach (var r in template.Rectangles.OrderBy(r => r.Order))
-                        {
-                            var rect = GetRectForSize(r.Size);
-                            <rect x="@rect.X" y="@rect.Y" width="@rect.Width" height="@rect.Height" rx="2" fill="#B8D8F8" stroke="#555" stroke-width="1" />
-                        }
-                    </svg>
-
+                    
+                    <div class="template-preview">
+                        @((MarkupString)svg)
+                    </div>
                     <div class="template-name">@template.Name</div>
                 </div>
             }
