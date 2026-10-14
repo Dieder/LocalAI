@@ -115,7 +115,7 @@ else
                         <div class="col">
                             <article class="card h-100 shadow-sm">
                                 <div class="photo-exif-container">
-                                    <img class="card-img-top" src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" style="height: 180px; object-fit: cover;" />
+                                    <img class="card-img-top photo-thumbnail" src="albums/@album.Id/photos/@photo.Id/content" alt="@photo.OriginalFileName" style="height: 180px; object-fit: contain; background: #e9ecef;" />
                                     @if (HasExifDetails(photo))
                                     {
                                         <div class="photo-exif-popup" role="tooltip">
