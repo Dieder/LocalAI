@@ -7,6 +7,38 @@
     min-height: 420px;
 }
 
+.album-introduction-page {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 1.5rem;
+    min-height: 520px;
+}
+
+.album-introduction,
+.album-route-map {
+    min-width: 0;
+    padding: 1.5rem;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    background: #fff;
+}
+
+.album-introduction-content {
+    line-height: 1.7;
+}
+
+.album-route-map-canvas {
+    min-height: 440px;
+    border-radius: 0.25rem;
+    overflow: hidden;
+}
+
+@media (max-width: 768px) {
+    .album-introduction-page {
+        grid-template-columns: 1fr;
+    }
+}
+
 .layout-viewer-nav {
     border-top: 1px solid #dee2e6;
     padding-top: 1rem;

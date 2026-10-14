@@ -69,7 +69,7 @@
                              <img src="@GetPhotoUrl(photoId!)"
                                  alt="@GetPhotoName(photoId!)"
                                  class="photo-img"
-                                  style="object-position: @(placedSlot?.PositionX ?? 50)% @(placedSlot?.PositionY ?? 50)%; --photo-zoom: @GetZoom(placedSlot);" />
+                                  style="--photo-zoom: @GetZoom(placedSlot); transform: @GetPhotoTransform(placedSlot);" />
 
                              @if (Editable)
                              {
@@ -77,7 +77,7 @@
                                      <button type="button" class="btn btn-sm btn-dark" @onclick="() => ChangeZoom(placedSlot!, -ZoomStep)" disabled="@(placedSlot!.Zoom <= MinZoom)">−</button>
                                      <span class="zoom-level">@((placedSlot!.Zoom * 100).ToString("0"))%</span>
                                      <button type="button" class="btn btn-sm btn-dark" @onclick="() => ChangeZoom(placedSlot!, ZoomStep)" disabled="@(placedSlot!.Zoom >= MaxZoom)">+</button>
-                                     <button type="button" class="btn btn-sm btn-outline-light" @onclick="() => ChangeZoom(placedSlot!, MinZoom - placedSlot.Zoom)">Reset</button>
+                                      <button type="button" class="btn btn-sm btn-outline-light" @onclick="() => ResetZoom(placedSlot!)">Reset</button>
                                  </div>
                              }
 
@@ -143,6 +143,9 @@
 
     [Parameter]
     public EventCallback<LayoutZoomChangedEventArgs> OnZoomChanged { get; set; }
+
+    [Parameter]
+    public EventCallback<LayoutPositionChangedEventArgs> OnPositionChanged { get; set; }
 
     [Parameter]
     public int? PageNumber { get; set; }
@@ -224,6 +227,12 @@
             (args.ClientX - activePositionPointerX) / activePositionWidth * 100d);
         activePositionSlot.PositionY = Clamp(activePositionStartY +
             (args.ClientY - activePositionPointerY) / activePositionHeight * 100d);
+        _ = OnPositionChanged.InvokeAsync(new LayoutPositionChangedEventArgs(
+            activePositionSlot.Col,
+            activePositionSlot.Row,
+            IsTitlePage,
+            activePositionSlot.PositionX,
+            activePositionSlot.PositionY));
         StateHasChanged();
     }
 
@@ -236,6 +245,17 @@
 
     private static string GetZoom(PhotoSlot? slot) =>
         (slot?.Zoom ?? 1d).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    private static string GetPhotoTransform(PhotoSlot? slot)
+    {
+        var zoom = slot?.Zoom ?? 1d;
+        var positionX = slot?.PositionX ?? 50d;
+        var positionY = slot?.PositionY ?? 50d;
+        var offsetX = (50d - positionX) * (zoom - 1d);
+        var offsetY = (50d - positionY) * (zoom - 1d);
+
+        return $"translate({offsetX.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%, {offsetY.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%) scale({zoom.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)})";
+    }
 
     private sealed record SlotSize(double Width, double Height);
 
@@ -262,6 +282,12 @@
     private Task ChangeZoom(PhotoSlot slot, double delta)
     {
         slot.Zoom = Math.Clamp(Math.Round(slot.Zoom + delta, 2), MinZoom, MaxZoom);
+        return OnZoomChanged.InvokeAsync(new LayoutZoomChangedEventArgs(slot.Col, slot.Row, IsTitlePage, slot.Zoom));
+    }
+
+    private Task ResetZoom(PhotoSlot slot)
+    {
+        slot.Zoom = 1d;
         return OnZoomChanged.InvokeAsync(new LayoutZoomChangedEventArgs(slot.Col, slot.Row, IsTitlePage, slot.Zoom));
     }
 

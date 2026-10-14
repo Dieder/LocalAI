@@ -10,11 +10,16 @@
 
 @inject IJSRuntime JS
 
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <a class="text-decoration-none" href="/albums/@AlbumId">&larr; Back to album</a>
+        <h1 class="h3 mt-2 mb-0">Route Editor</h1>
+    </div>
+</div>
+
 <div class="row">
 
     <div class="col-md-4">
-
-        <h4>Route Editor</h4>
 
         @foreach (var leg in Model.Legs.Select((item, index) => new { item, index }))
         {

@@ -8,7 +8,6 @@
 @using Microsoft.AspNetCore.Authorization;
 @attribute [Authorize]
 <PageTitle>Edit album</PageTitle>
-<AlbumEdit />
 @if (model is null)
 {
     <p><em>Loading...</em></p>
@@ -16,11 +15,11 @@
 else
 {
     <div class="mb-4">
-        <a class="text-decoration-none" href="albums/@Id">&larr; Back to album</a>
+        <a class="text-decoration-none" href="/albums/@Id">&larr; Back to album</a>
         <h1 class="mt-3">Edit album</h1>
     </div>
 
-    <AlbumForm Model="model" SubmitLabel="Save changes" />
+    <AlbumForm Model="model" SubmitLabel="Save changes" ActionsAtTop="true" />
 }
 
 @code {
