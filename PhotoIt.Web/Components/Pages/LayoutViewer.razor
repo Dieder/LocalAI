@@ -51,7 +51,8 @@ else
                                        Subtitle="@(albumLayout.Subtitle)"
                                        CoverPhotoId="@(albumLayout.CoverPhotoId)"
                                     PhotoLookup="@photoLookup"
-                                    Editable="false" />
+                                     Editable="false"
+                                     PresentationMode="@SharedLink" />
             }
             else if (currentViewIndex == 1)
             {
@@ -81,7 +82,8 @@ else
                                     TemplateId="@currentContentPage.TemplateId"
                                     Photos="@currentContentPage.Photos"
                                     PhotoLookup="@photoLookup"
-                                    Editable="false" />
+                                     Editable="false"
+                                     PresentationMode="@SharedLink" />
             }
         </div>
 

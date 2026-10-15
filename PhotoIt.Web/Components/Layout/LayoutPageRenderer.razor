@@ -38,7 +38,7 @@
     }
     else
     {
-        <div class="layout-page-renderer"
+        <div class="layout-page-renderer @(PresentationMode ? "presentation-mode" : "")"
             style="--cols: @Template.Columns; --rows: @Template.Rows; --page-ratio: @PageAspectRatio;">
             @foreach (var slot in Template.Slots.OrderBy(s => s.Row).ThenBy(s => s.Col))
             {
@@ -97,8 +97,8 @@
                         <span class="slot-placeholder">Drop photo</span>
                     }
                     </div>
-                }
                 </div>
+                }
             }
         </div>
     }
@@ -131,6 +131,9 @@
 
     [Parameter]
     public bool Editable { get; set; }
+
+    [Parameter]
+    public bool PresentationMode { get; set; }
 
     [Parameter]
     public EventCallback<LayoutDropEventArgs> OnPhotoDropped { get; set; }
