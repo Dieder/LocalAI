@@ -1,0 +1,33 @@
+@page "/sharedalbum/{Slug}/{Seed:int}"
+@attribute [AllowAnonymous]
+@using PhotoIt.Web.Components.Layout
+@layout SharedAlbumLayout
+@rendermode InteractiveServer
+@using Microsoft.AspNetCore.Authorization
+@inject AlbumCatalog Catalog
+
+<PageTitle>@(album?.Name ?? "Shared album")</PageTitle>
+
+@if (album is null)
+{
+    <div class="alert alert-warning">Shared album not found.</div>
+}
+else
+{
+    <LayoutViewer Id="@album.Id" SharedLink="true" />
+}
+
+@code {
+    [Parameter]
+    public string Slug { get; set; } = string.Empty;
+
+    [Parameter]
+    public int Seed { get; set; }
+
+    private Album? album;
+
+    protected override void OnInitialized()
+    {
+        album = Catalog.GetShared(Slug, Seed);
+    }
+}

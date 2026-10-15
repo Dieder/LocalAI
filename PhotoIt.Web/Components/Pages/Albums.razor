@@ -4,6 +4,7 @@
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
 @using PhotoIt.Web.Components
 
 <PageTitle>Albums</PageTitle>
@@ -39,14 +40,34 @@ else
         {
             <div class="col">
                 <article class="card h-100 shadow-sm">
+                            @if (coverPhotoIds.TryGetValue(album.Id, out var coverPhotoId))
+                            {
+                                <img class="card-img-top" src="albums/@album.Id/photos/@coverPhotoId/content" alt="Cover for @album.Name" style="height: 220px; object-fit: cover;" />
+                            }
+                            else
+                            {
+                                <div class="d-flex align-items-center justify-content-center bg-light text-muted" style="height: 220px;">No cover photo</div>
+                            }
                     <div class="card-body">
                         <p class="text-muted small mb-2">@album.ImageFolderName</p>
                         <h2 class="h4 card-title">@album.Name</h2>
                         <p class="card-text text-muted">@Truncate(album.FullDescription)</p>
+                        @if (shareUrls.TryGetValue(album.Id, out var shareUrl))
+                        {
+                            <label class="form-label small mb-1" for="share-link-@album.Id">Share album</label>
+                            <div class="input-group input-group-sm">
+                                <input id="share-link-@album.Id" class="form-control" value="@shareUrl" readonly aria-label="Shared album link" />
+                                <button class="btn btn-outline-secondary" type="button" @onclick="() => CopyShareLinkAsync(album.Id, shareUrl)">
+                                    @(copiedAlbumId == album.Id ? "Copied" : "Share")
+                                </button>
+                            </div>
+                        }
                     </div>
                     <div class="card-footer bg-white border-0 d-flex justify-content-between align-items-center">
                         <small class="text-muted">Updated @album.UpdatedUtc.ToLocalTime().ToString("d")</small>
-                        <a class="btn btn-sm btn-outline-primary" href="albums/@album.Id">View</a>
+                        <div class="d-flex gap-2">
+                            <a class="btn btn-sm btn-outline-primary" href="albums/@album.Id">Manage</a>
+                        </div>
                     </div>
                 </article>
             </div>
@@ -57,13 +78,35 @@ else
 @code {
     private IReadOnlyList<Album> albums = [];
     private bool isAuthenticated;
+    private readonly Dictionary<string, string> shareUrls = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> coverPhotoIds = new(StringComparer.OrdinalIgnoreCase);
+    private string? copiedAlbumId;
 
     protected override async Task OnInitializedAsync()
     {
-        albums = Catalog.List();
-
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         isAuthenticated = authState.User?.Identity?.IsAuthenticated ?? false;
+        var currentUserId = CurrentUserHelper.GetUserId(authState.User);
+        albums = Catalog.List();
+
+        foreach (var album in albums)
+        {
+            var layout = Catalog.GetLayout(album.Id);
+            if (!string.IsNullOrWhiteSpace(layout?.CoverPhotoId))
+                coverPhotoIds[album.Id] = layout.CoverPhotoId;
+
+            if (isAuthenticated && currentUserId == album.UserId && layout is not null)
+            {
+                Catalog.EnsureShareLink(album);
+                shareUrls[album.Id] = $"{Navigation.BaseUri.TrimEnd('/')}/sharedalbum/{album.ShareSlug}/{album.ShareSeed}";
+            }
+        }
+    }
+
+    private async Task CopyShareLinkAsync(string albumId, string shareUrl)
+    {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", shareUrl);
+        copiedAlbumId = albumId;
     }
 
     private static string Truncate(string value)

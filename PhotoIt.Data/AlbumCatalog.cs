@@ -1,5 +1,6 @@
 using PhotoIt.Data;
 using LiteDB;
+using System.Security.Cryptography;
 
 namespace PhotoIt.Data;
 
@@ -18,6 +19,9 @@ public class Album
     public string Intro { get; set; } = string.Empty;
 
     public string UserId { get; set; } = string.Empty;  
+
+    public string ShareSlug { get; set; } = string.Empty;
+    public int ShareSeed { get; set; }
 }
 
 public sealed class AlbumPhoto
@@ -88,6 +92,33 @@ public sealed class AlbumCatalog : IDisposable
     public Album? Get(string id)
     {
         return _albums.FindById(id);
+    }
+
+    public Album? GetShared(string slug, int seed)
+    {
+        var normalizedSlug = NormalizeShareSlug(slug);
+        if (string.IsNullOrWhiteSpace(normalizedSlug) || seed <= 0)
+            return null;
+
+        return _albums.FindOne(album => album.ShareSlug == normalizedSlug && album.ShareSeed == seed);
+    }
+
+    public void EnsureShareLink(Album album)
+    {
+        ArgumentNullException.ThrowIfNull(album);
+
+        var slug = FormatShareSlug(album.UserId);
+        if (string.Equals(album.ShareSlug, slug, StringComparison.Ordinal) && album.ShareSeed > 0)
+            return;
+
+        album.ShareSlug = slug;
+        do
+        {
+            album.ShareSeed = RandomNumberGenerator.GetInt32(100_000, 1_000_000);
+        }
+        while (_albums.Exists(candidate => candidate.Id != album.Id && candidate.ShareSlug == album.ShareSlug && candidate.ShareSeed == album.ShareSeed));
+
+        _albums.Update(album);
     }
 
     public bool ImageFolderNameExists(string imageFolderName, string? excludingId = null)
@@ -225,6 +256,39 @@ public sealed class AlbumCatalog : IDisposable
     private static string NormalizeFolderName(string value)
     {
         return value.Trim().ToUpperInvariant();
+    }
+
+    public static string FormatShareSlug(string value)
+    {
+        var source = value.Trim();
+        var atIndex = source.IndexOf('@');
+        if (atIndex > 0)
+            source = source[..atIndex];
+
+        var builder = new System.Text.StringBuilder(source.Length);
+        var separatorPending = false;
+        foreach (var character in source.ToLowerInvariant())
+        {
+            if (char.IsLetterOrDigit(character))
+            {
+                if (separatorPending && builder.Length > 0)
+                    builder.Append('-');
+
+                builder.Append(character);
+                separatorPending = false;
+            }
+            else if (builder.Length > 0)
+            {
+                separatorPending = true;
+            }
+        }
+
+        return builder.ToString().Trim('-');
+    }
+
+    private static string NormalizeShareSlug(string value)
+    {
+        return value.Trim().ToLowerInvariant();
     }
 
     private static void NormalizeLayout(ViewableAlbumLayout layout)

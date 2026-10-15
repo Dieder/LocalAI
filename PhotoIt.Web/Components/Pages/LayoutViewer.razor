@@ -19,7 +19,7 @@
 else if (albumLayout is null)
 {
     <div class="alert alert-warning">No layout has been created for this album yet.</div>
-    @if (canEdit)
+            @if (canEdit && !SharedLink)
     {
         <a class="btn btn-primary" href="albums/@album.Id/layout/edit">Create layout</a>
     }
@@ -29,9 +29,12 @@ else
     <div class="layout-viewer" tabindex="0" @onkeydown="HandleKeyDown">
         <div class="layout-viewer-toolbar d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
             <div>
-                <a class="text-decoration-none" href="albums/@album.Id">&larr; Back to album</a>
+                @if (!SharedLink)
+                {
+                    <a class="text-decoration-none" href="albums/@album.Id">&larr; Back to album</a>
+                }
             </div>
-            @if (canEdit)
+            @if (canEdit && !SharedLink)
             {
                 <div class="d-flex gap-2">
                     <a class="btn btn-sm btn-outline-secondary" href="albums/@album.Id/layout/edit">Edit layout</a>
@@ -97,6 +100,9 @@ else
 @code {
     [Parameter]
     public string Id { get; set; } = string.Empty;
+
+    [Parameter]
+    public bool SharedLink { get; set; }
 
     private Album? album;
     private ViewableAlbumLayout? albumLayout;

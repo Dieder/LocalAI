@@ -4,6 +4,7 @@
 @inject AlbumCatalog Catalog
 @inject NavigationManager Navigation
 @inject AuthenticationStateProvider AuthStateProvider
+@inject IJSRuntime JS
 @using PhotoIt.Web.Components
 
 <PageTitle>@(album?.Name ?? "Album")</PageTitle>
@@ -100,6 +101,8 @@ else
     private Album? album;
     private bool hasLayout;
     private bool canEdit;
+    private string? shareUrl;
+    private bool shareCopied;
 
     protected override async Task OnInitializedAsync()
     {
@@ -108,6 +111,21 @@ else
 
         var authState = await AuthStateProvider.GetAuthenticationStateAsync();
         canEdit = CurrentUserHelper.GetUserId(authState.User) == album?.UserId;
+        if (canEdit && album is not null)
+        {
+            Catalog.EnsureShareLink(album);
+            if (hasLayout)
+                shareUrl = $"{Navigation.BaseUri.TrimEnd('/')}/sharedalbum/{album.ShareSlug}/{album.ShareSeed}";
+        }
+    }
+
+    private async Task CopyShareLinkAsync()
+    {
+        if (string.IsNullOrWhiteSpace(shareUrl))
+            return;
+
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", shareUrl);
+        shareCopied = true;
     }
 
     private Task DeleteAsync()
