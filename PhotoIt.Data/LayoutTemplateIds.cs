@@ -14,6 +14,8 @@ namespace PhotoIt.Data
         public const string TravelStyle = "travel-style";
         public const string Portrait3 = "portrait-3";
         public const string Panorama = "panorama";
+        public const string Landscape2 = "landscape-2";
+        public const string BannerLandscape2 = "banner-landscape-2";
 
         public const string SmallSquares = "small-squares";
         public const string OneBig = "one-big";
@@ -111,7 +113,7 @@ namespace PhotoIt.Data
         new(LayoutTemplateIds.TravelStyle, "Travel Style",
             columns: 2, rows: 3,
             [
-                new(1, 1, PhotoType.Panorama, ColSpan: 2),   // full-width panorama
+                new(1, 1, PhotoType.Banner, ColSpan: 2),      // full-width banner
                 new(1, 2, PhotoType.Portrait),
                 new(2, 2, PhotoType.Portrait),
                 new(1, 3, PhotoType.Landscape),
@@ -132,6 +134,23 @@ namespace PhotoIt.Data
             columns: 1, rows: 1,
             [
                 new(1, 1, PhotoType.Panorama)
+            ]),
+
+        // 2 landscape photos side by side
+        new(LayoutTemplateIds.Landscape2, "Landscape ×2",
+            columns: 2, rows: 1,
+            [
+                new(1, 1, PhotoType.Landscape),
+                new(2, 1, PhotoType.Landscape)
+            ]),
+
+        // Banner above 2 landscape photos
+        new(LayoutTemplateIds.BannerLandscape2, "Banner + Landscape ×2",
+            columns: 2, rows: 2,
+            [
+                new(1, 1, PhotoType.Banner, ColSpan: 2),
+                new(1, 2, PhotoType.Landscape),
+                new(2, 2, PhotoType.Landscape)
             ]),
 
         // Classic 1 large photo

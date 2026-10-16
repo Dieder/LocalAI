@@ -58,8 +58,20 @@
 }
 
 .template-card.selected {
-    border-color: #2b78f4;
-    box-shadow: 0 8px 20px rgba(43,120,244,0.12);
+    border: 2px solid #0d6efd;
+    outline: 2px solid #0d6efd;
+    outline-offset: 1px;
+    box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.18);
+}
+
+.template-card.locked {
+    cursor: not-allowed;
+    opacity: 0.55;
+}
+
+.template-card.locked:hover {
+    box-shadow: none;
+    transform: none;
 }
 
 .template-preview-svg {

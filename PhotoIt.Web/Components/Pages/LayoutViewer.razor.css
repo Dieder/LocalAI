@@ -1,10 +1,18 @@
 .layout-viewer {
-    max-width: 960px;
+    --album-available-height: calc(100vh - 12rem);
+    max-width: none;
     margin: 0 auto;
 }
 
 .layout-viewer-page {
-    min-height: 420px;
+    min-height: 0;
+    display: grid;
+    place-items: center;
+}
+
+.layout-viewer-page ::deep .layout-paper,
+.layout-viewer-page ::deep .layout-page-renderer.title-page {
+    max-height: var(--album-available-height);
 }
 
 .album-introduction-page {

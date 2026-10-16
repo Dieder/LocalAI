@@ -133,7 +133,11 @@ else
                             }
                             else
                             {
-                                <LayoutTemplateSelector Templates="layoutTemplates" SelectedTemplateId="selectedPage.TemplateId" SelectedTemplateIdChanged="OnTemplateSelected" />
+                                <LayoutTemplateSelector @key="selectedPage.Number"
+                                                        Templates="layoutTemplates"
+                                                        SelectedTemplateId="selectedPage.TemplateId"
+                                                        PageHasPhotos="@selectedPage.Photos.Any(slot => !string.IsNullOrWhiteSpace(slot.PhotoId))"
+                                                        SelectedTemplateIdChanged="OnTemplateSelected" />
                             }
                         </div>
                         <div class="d-flex gap-2">
@@ -301,7 +305,9 @@ else
 
     private void OnTemplateSelected(string templateId)
     {
-        if (selectedPage is null || templateId == selectedPage.TemplateId)
+        if (selectedPage is null
+            || selectedPage.Photos.Any(slot => !string.IsNullOrWhiteSpace(slot.PhotoId))
+            || templateId == selectedPage.TemplateId)
             return;
 
         selectedPage.TemplateId = templateId;
@@ -389,6 +395,7 @@ else
         {
             albumLayout!.CoverPhotoId = null;
             targetSlot.PhotoId = draggedPhotoId;
+            ResetSlotComposition(targetSlot);
             ClearDragState();
             return Task.CompletedTask;
         }
@@ -402,6 +409,7 @@ else
         if (draggedFromSlotCol is null)
         {
             targetSlot.PhotoId = draggedPhotoId;
+            ResetSlotComposition(targetSlot);
         }
         else if (draggedFromSlotCol == args.slotCol && draggedFromSlotRow == args.slotRow)
         {
@@ -436,7 +444,7 @@ else
                 return Task.CompletedTask;
             }
 
-            (sourceSlot.PhotoId, targetSlot.PhotoId) = (targetSlot.PhotoId, sourceSlot.PhotoId);
+            SwapSlotContents(sourceSlot, targetSlot);
         }
 
         ClearDragState();
@@ -463,6 +471,21 @@ else
         var slot = page.Photos.FirstOrDefault(item => item.Col == slotCol && item.Row == slotRow);
         if (slot is not null)
             slot.PhotoId = null;
+    }
+
+    private static void ResetSlotComposition(PhotoSlot slot)
+    {
+        slot.PositionX = 50d;
+        slot.PositionY = 50d;
+        slot.Zoom = 1d;
+    }
+
+    private static void SwapSlotContents(PhotoSlot sourceSlot, PhotoSlot targetSlot)
+    {
+        (sourceSlot.PhotoId, targetSlot.PhotoId) = (targetSlot.PhotoId, sourceSlot.PhotoId);
+        (sourceSlot.PositionX, targetSlot.PositionX) = (targetSlot.PositionX, sourceSlot.PositionX);
+        (sourceSlot.PositionY, targetSlot.PositionY) = (targetSlot.PositionY, sourceSlot.PositionY);
+        (sourceSlot.Zoom, targetSlot.Zoom) = (targetSlot.Zoom, sourceSlot.Zoom);
     }
 
     private void ClearSlotOnPage(int pageNumber, int slotCol, int slotRow)

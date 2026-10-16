@@ -1,7 +1,7 @@
 @using PhotoIt.Data
 @inject IJSRuntime JS
 
-<div class="layout-page-renderer @(IsTitlePage ? "title-page" : $"template-{TemplateId.ToLowerInvariant()}")">
+<div class="@(IsTitlePage ? "layout-page-renderer title-page" : "layout-paper")" style="--paper-ratio: @PageAspectRatio;">
     @if (IsTitlePage)
     {
         <div class="title-page-content">
@@ -39,7 +39,7 @@
     else
     {
         <div class="layout-page-renderer @(PresentationMode ? "presentation-mode" : "")"
-            style="--cols: @Template.Columns; --rows: @Template.Rows; --page-ratio: @PageAspectRatio;">
+            style="--cols: @Template.Columns; --rows: @Template.Rows; --page-ratio: @PageAspectRatio; --paper-ratio: @PaperAspectRatio;">
             @foreach (var slot in Template.Slots.OrderBy(s => s.Row).ThenBy(s => s.Col))
             {
                 var placedSlot = Photos.FirstOrDefault(item => item.Col == slot.Col && item.Row == slot.Row);
@@ -53,13 +53,11 @@
                      @ondrop:preventDefault
                      @ondragover:preventDefault>
                     <div class="slot-frame size-@slot.Type.Id @(IsFullPageSlot(slot) ? "full-page-slot" : "")"
-                         style="--slot-ratio: @slot.Type.AspectRatio;">
+                         >
 
-                    @if (!string.IsNullOrWhiteSpace(photoId))
+                    @if (!string.IsNullOrWhiteSpace(photoId) && IsPhotoCompatible(slot, photoId))
                     {
                          <div class="slot-photo @(Editable ? "draggable" : "")"
-                             draggable="@Editable"
-                             @ondragstart="() => HandleSlotDragStart(slot.Col, slot.Row, photoId!)"
                              @onpointerdown="(args) => BeginPhotoPositionDrag(args, placedSlot ?? slot)"
                              @onpointermove="HandlePhotoPositionMove"
                              @onpointerup="EndPhotoPositionDrag"
@@ -68,12 +66,20 @@
 
                              <img src="@GetPhotoUrl(photoId!)"
                                  alt="@GetPhotoName(photoId!)"
-                                 class="photo-img"
-                                  style="--photo-zoom: @GetZoom(placedSlot); transform: @GetPhotoTransform(placedSlot);" />
+                                  class="photo-img @GetPhotoFitClass(photoId!)"
+                                      style="transform: @GetPhotoTransform(placedSlot, slot);" />
 
                              @if (Editable)
                              {
-                                 <div class="zoom-controls" @onclick:stopPropagation="true">
+                                  <button type="button"
+                                          class="slot-drag-handle btn btn-sm btn-dark"
+                                          draggable="true"
+                                          aria-label="Move photo to another slot"
+                                          title="Drag to another slot"
+                                          @ondragstart="() => HandleSlotDragStart(slot.Col, slot.Row, photoId!)"
+                                          @onpointerdown:stopPropagation="true"
+                                          @onclick:stopPropagation="true">⠿</button>
+                                  <div class="zoom-controls" @onpointerdown:stopPropagation="true" @onclick:stopPropagation="true">
                                      <button type="button" class="btn btn-sm btn-dark" @onclick="() => ChangeZoom(placedSlot!, -ZoomStep)" disabled="@(placedSlot!.Zoom <= MinZoom)">−</button>
                                      <span class="zoom-level">@((placedSlot!.Zoom * 100).ToString("0"))%</span>
                                      <button type="button" class="btn btn-sm btn-dark" @onclick="() => ChangeZoom(placedSlot!, ZoomStep)" disabled="@(placedSlot!.Zoom >= MaxZoom)">+</button>
@@ -86,11 +92,16 @@
                                 <button type="button"
                                         class="slot-remove btn btn-sm btn-dark"
                                         @onclick="() => HandleSlotRemove(slot.Col, slot.Row)"
+                                         @onpointerdown:stopPropagation="true"
                                         @onclick:stopPropagation="true">
                                     ×
                                 </button>
                             }
                         </div>
+                    }
+                    else if (!string.IsNullOrWhiteSpace(photoId))
+                    {
+                        <span class="slot-placeholder slot-invalid">Photo does not fit this slot</span>
                     }
                     else if (Editable)
                     {
@@ -98,7 +109,6 @@
                     }
                     </div>
                 </div>
-                }
             }
         </div>
     }
@@ -157,6 +167,14 @@
     private double PageAspectRatio => Template is { } template
         ? GetPageAspectRatio(template)
         : 1d;
+
+    private double PaperAspectRatio => TemplateId switch
+    {
+        LayoutTemplateIds.PaginaSquare => 1d,
+        LayoutTemplateIds.PaginaFull => 297d / 210d,
+        _ when PageAspectRatio > 1d => 297d / 210d,
+        _ => 210d / 297d
+    };
 
     private static double GetPageAspectRatio(LayoutTemplate template)
     {
@@ -246,12 +264,16 @@
 
     private static double Clamp(double value) => Math.Clamp(value, 0d, 100d);
 
-    private static string GetZoom(PhotoSlot? slot) =>
-        (slot?.Zoom ?? 1d).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+    private string GetPhotoFitClass(string photoId) =>
+        PhotoLookup.TryGetValue(photoId, out var photo)
+        && photo.PixelWidth is > 0
+        && photo.PixelHeight is > 0
+            ? "photo-fit-calculated"
+            : "photo-fit-cover";
 
-    private static string GetPhotoTransform(PhotoSlot? slot)
+    private string GetPhotoTransform(PhotoSlot? slot, PhotoSlot targetSlot)
     {
-        var zoom = slot?.Zoom ?? 1d;
+        var zoom = GetRenderedZoom(slot, targetSlot);
         var positionX = slot?.PositionX ?? 50d;
         var positionY = slot?.PositionY ?? 50d;
         var offsetX = (50d - positionX) * (zoom - 1d);
@@ -259,6 +281,44 @@
 
         return $"translate({offsetX.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%, {offsetY.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%) scale({zoom.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)})";
     }
+
+    private double GetRenderedZoom(PhotoSlot? slot, PhotoSlot targetSlot)
+    {
+        var userZoom = slot?.Zoom ?? 1d;
+        if (slot?.PhotoId is not string photoId
+            || !PhotoLookup.TryGetValue(photoId, out var photo)
+            || photo.PixelWidth is not int photoWidth
+            || photo.PixelHeight is not int photoHeight
+            || photoWidth <= 0
+            || photoHeight <= 0)
+        {
+            return userZoom;
+        }
+
+        var photoRatio = photoWidth / (double)photoHeight;
+        var slotRatio = GetRenderedSlotAspectRatio(targetSlot);
+        var widthFit = slotRatio / photoRatio;
+        var coverScale = Math.Max(widthFit, 1d);
+        var containScale = Math.Min(widthFit, 1d);
+        var coverFitZoom = coverScale / containScale;
+
+        return coverFitZoom * userZoom;
+    }
+
+    private double GetRenderedSlotAspectRatio(PhotoSlot slot)
+    {
+        if (Template is not { } template || template.Columns <= 0 || template.Rows <= 0)
+            return Math.Max(slot.Type.AspectRatio, 0.01d);
+
+        return Math.Max(0.01d,
+            PageAspectRatio
+            * slot.ColSpan / (double)template.Columns
+            * template.Rows / (double)slot.RowSpan);
+    }
+
+    private bool IsPhotoCompatible(PhotoSlot slot, string photoId) =>
+        !PhotoLookup.TryGetValue(photoId, out var photo)
+        || PhotoType.IsCompatible(slot.Type.Id, photo.PixelWidth, photo.PixelHeight);
 
     private sealed record SlotSize(double Width, double Height);
 

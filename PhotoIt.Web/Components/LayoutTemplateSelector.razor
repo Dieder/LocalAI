@@ -13,11 +13,14 @@
             @foreach (var template in Templates)
             {
                 var isSelected = template.Id == SelectedTemplateId;
+                var isLocked = PageHasPhotos && !isSelected;
                 var svg = template.ToSvg();
-                <div class="template-card @(isSelected ? "selected" : "")"
+                <div class="template-card @(isSelected ? "selected" : "") @(isLocked ? "locked" : "")"
                      role="button"
-                     tabindex="0"
-                     @onclick="() => SelectTemplate(template.Id)"
+                     tabindex="@(isLocked ? -1 : 0)"
+                     aria-pressed="@isSelected"
+                     aria-disabled="@isLocked"
+                     @onclick="() => SelectTemplate(template.Id, isLocked)"
                      @onkeypress="(e) => OnKeyPress(e, template.Id)">
 
                     
@@ -39,11 +42,14 @@
     public string? SelectedTemplateId { get; set; }
 
     [Parameter]
+    public bool PageHasPhotos { get; set; }
+
+    [Parameter]
     public EventCallback<string> SelectedTemplateIdChanged { get; set; }
 
-    private async Task SelectTemplate(string id)
+    private async Task SelectTemplate(string id, bool isLocked = false)
     {
-        if (string.IsNullOrWhiteSpace(id) || id == SelectedTemplateId)
+        if (isLocked || string.IsNullOrWhiteSpace(id) || id == SelectedTemplateId)
             return;
 
         SelectedTemplateId = id;
@@ -54,7 +60,7 @@
     private async Task OnKeyPress(KeyboardEventArgs e, string id)
     {
         if (e.Key == "Enter" || e.Key == " ")
-            await SelectTemplate(id);
+            await SelectTemplate(id, PageHasPhotos && id != SelectedTemplateId);
     }
 
     private (double X, double Y, double Width, double Height) GetRectForSize(string size)

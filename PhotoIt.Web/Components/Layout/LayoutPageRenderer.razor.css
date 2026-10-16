@@ -1,10 +1,34 @@
+.layout-paper {
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: min(100%, calc(100vw - 2rem));
+    max-width: none;
+    max-height: var(--album-available-height, calc(100vh - 12rem));
+    margin: 0 auto;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 0.375rem;
+    aspect-ratio: var(--paper-ratio, 210 / 297);
+}
+
+.layout-paper > .layout-page-renderer {
+    width: 100%;
+    max-width: 100%;
+    max-height: 100%;
+    margin: 0;
+}
+
 .layout-page-renderer {
+    box-sizing: border-box;
     display: grid;
     gap: 8px;
-    grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
-    grid-template-rows: repeat(var(--rows), minmax(0, 1fr));
+    grid-template-columns: var(--column-tracks, repeat(var(--cols), minmax(0, 1fr)));
+    grid-template-rows: var(--row-tracks, repeat(var(--rows), minmax(0, 1fr)));
     width: 100%;
-    max-width: 900px;
+    max-width: 100%;
     margin: 0 auto;
     background: #fff;
     border: 1px solid #dee2e6;
@@ -13,13 +37,19 @@
     aspect-ratio: var(--page-ratio, var(--cols) / var(--rows));
 }
 
+.layout-paper:has(.presentation-mode) {
+    border: 0;
+    border-radius: 0;
+    padding: 0;
+    background: transparent;
+}
+
 .layout-page-renderer.presentation-mode {
     gap: 0;
     border: 0;
     border-radius: 0;
     padding: 0;
     background: transparent;
-    font-size: 0;
 }
 
 .layout-page-renderer.title-page {
@@ -61,8 +91,8 @@
 
 .title-page-cover img {
     width: 100%;
-    height: 100%;
-    object-fit: contain;
+    height: auto;
+    object-fit: cover;
     display: block;
     background: #f8f9fa;
 }
@@ -79,24 +109,22 @@
     background: transparent;
 }
 
-.presentation-mode .slot-frame:not(.full-page-slot) {
-    width: 100%;
-    height: 100%;
-    max-height: 100%;
-}
-
 
 .layout-slot {
+    box-sizing: border-box;
     border: 2px dashed #ced4da;
     border-radius: 0.25rem;
     overflow: hidden;
     position: relative;
     min-height: 0;
+    width: 100%;
+    height: 100%;
+    align-self: stretch;
     background: #f8f9fa;
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 0;
 }
 
 .layout-slot.editable-slot:hover {
@@ -105,28 +133,17 @@
 }
 
 .slot-frame {
+    box-sizing: border-box;
     position: relative;
     width: 100%;
     height: 100%;
     min-width: 0;
     min-height: 0;
-    aspect-ratio: var(--slot-ratio);
+    aspect-ratio: inherit;
     overflow: hidden;
     border: 2px dashed #ced4da;
     border-radius: 0.25rem;
     background: #f8f9fa;
-}
-
-.slot-frame:not(.full-page-slot) {
-    width: 100%;
-    height: auto;
-    max-height: 100%;
-}
-
-.slot-frame.size-square,
-.slot-frame.size-small-square,
-.slot-frame.size-panorama {
-    width: calc(100% - 16px);
 }
 
 .slot-photo {
@@ -145,6 +162,10 @@
     transform-origin: center center;
     transition: transform 0.2s ease;
     will-change: transform;
+}
+
+.slot-photo img.photo-fit-cover {
+    object-fit: cover;
 }
 
 .zoom-controls {
@@ -182,6 +203,20 @@
     cursor: grabbing;
 }
 
+.slot-drag-handle {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 21;
+    cursor: grab;
+    line-height: 1;
+    padding: 2px 6px;
+}
+
+.slot-drag-handle:active {
+    cursor: grabbing;
+}
+
 .slot-placeholder {
     display: flex;
     align-items: center;
@@ -191,6 +226,13 @@
     min-height: 80px;
     color: #6c757d;
     font-size: 0.875rem;
+}
+
+.slot-invalid {
+    color: #b02a37;
+    background: #f8d7da;
+    text-align: center;
+    padding: .5rem;
 }
 
 .slot-remove {

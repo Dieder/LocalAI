@@ -66,6 +66,12 @@
 
 .page-editor {
     min-width: 0;
+    --album-available-height: calc(100vh - 18rem);
+}
+
+.page-editor ::deep .layout-paper,
+.page-editor ::deep .layout-page-renderer.title-page {
+    max-height: var(--album-available-height);
 }
 
 .layout-design-selector {
