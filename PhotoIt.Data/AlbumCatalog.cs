@@ -314,7 +314,7 @@ public sealed class AlbumCatalog : IDisposable
                 if (!double.IsFinite(slot.Zoom))
                     slot.Zoom = 1d;
                 else
-                    slot.Zoom = Math.Clamp(slot.Zoom, 0.5d, 3d);
+                    slot.Zoom = Math.Clamp(slot.Zoom, 1d, 3d);
             }
         }
     }
