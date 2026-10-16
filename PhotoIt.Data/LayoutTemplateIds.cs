@@ -106,18 +106,15 @@ namespace PhotoIt.Data
         // +---------------------------+
         // |         PANORAMA          |
         // +------------+--------------+
-        // |  PORTRAIT  |   PORTRAIT   |
-        // +------------+--------------+
-        // | LANDSCAPE  |  LANDSCAPE   |
-        // +------------+--------------+
+        // |  Square  |   PORTRAIT   | 297/210
+        // +------------+--------------+ 10+0+20        
+       
         new(LayoutTemplateIds.TravelStyle, "Travel Style",
             columns: 2, rows: 3,
             [
                 new(1, 1, PhotoType.Banner, ColSpan: 2),      // full-width banner
-                new(1, 2, PhotoType.Portrait),
-                new(2, 2, PhotoType.Portrait),
-                new(1, 3, PhotoType.Landscape),
-                new(2, 3, PhotoType.Landscape)
+                new(1, 2, PhotoType.Square),
+                new(2, 2, PhotoType.Square),
             ]),
 
         // 3 portraits side-by-side

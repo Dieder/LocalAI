@@ -25,6 +25,7 @@
 }
 
 .template-preview {
+    position: relative;
     width: 100%;
     overflow: hidden;
     border-radius: 6px;
@@ -54,12 +55,14 @@
 
 .template-card:hover {
     box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    border: 2px purple dashed;
     transform: translateY(-2px);
 }
 
 .template-card.selected {
     border: 2px solid #0d6efd;
     outline: 2px solid #0d6efd;
+    border: 2px purple solid;
     outline-offset: 1px;
     box-shadow: 0 0 0 4px rgba(13, 110, 253, 0.18);
 }

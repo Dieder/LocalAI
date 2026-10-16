@@ -1,7 +1,8 @@
 @using PhotoIt.Data
 @inject IJSRuntime JS
+@implements IAsyncDisposable
 
-<div class="@(IsTitlePage ? "layout-page-renderer title-page" : "layout-paper")" style="--paper-ratio: @PageAspectRatio;">
+<div @ref="rendererRoot" class="@(IsTitlePage ? "layout-page-renderer title-page" : "layout-paper")" style="--paper-ratio: @PageAspectRatio;">
     @if (IsTitlePage)
     {
         <div class="title-page-content">
@@ -66,8 +67,10 @@
 
                              <img src="@GetPhotoUrl(photoId!)"
                                  alt="@GetPhotoName(photoId!)"
-                                  class="photo-img @GetPhotoFitClass(photoId!)"
-                                      style="transform: @GetPhotoTransform(placedSlot, slot);" />
+                                   class="photo-img"
+                                   data-user-zoom="@GetZoomValue(placedSlot)"
+                                   data-position-x="@GetPositionValue(placedSlot?.PositionX ?? 50d)"
+                                   data-position-y="@GetPositionValue(placedSlot?.PositionY ?? 50d)" />
 
                              @if (Editable)
                              {
@@ -207,6 +210,8 @@
     private double activePositionHeight;
     private double activePositionPointerX;
     private double activePositionPointerY;
+    private ElementReference rendererRoot;
+    private bool photoFitInitialized;
 
     
 
@@ -264,56 +269,32 @@
 
     private static double Clamp(double value) => Math.Clamp(value, 0d, 100d);
 
-    private string GetPhotoFitClass(string photoId) =>
-        PhotoLookup.TryGetValue(photoId, out var photo)
-        && photo.PixelWidth is > 0
-        && photo.PixelHeight is > 0
-            ? "photo-fit-calculated"
-            : "photo-fit-cover";
+    private static string GetZoomValue(PhotoSlot? slot) => GetPositionValue(slot?.Zoom ?? 1d);
 
-    private string GetPhotoTransform(PhotoSlot? slot, PhotoSlot targetSlot)
+    private static string GetPositionValue(double value) =>
+        value.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture);
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        var zoom = GetRenderedZoom(slot, targetSlot);
-        var positionX = slot?.PositionX ?? 50d;
-        var positionY = slot?.PositionY ?? 50d;
-        var offsetX = (50d - positionX) * (zoom - 1d);
-        var offsetY = (50d - positionY) * (zoom - 1d);
+        if (photoFitInitialized)
+            return;
 
-        return $"translate({offsetX.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%, {offsetY.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)}%) scale({zoom.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture)})";
+        await JS.InvokeVoidAsync("layoutEditor.initializePhotoFit", rendererRoot);
+        photoFitInitialized = true;
     }
 
-    private double GetRenderedZoom(PhotoSlot? slot, PhotoSlot targetSlot)
+    public async ValueTask DisposeAsync()
     {
-        var userZoom = slot?.Zoom ?? 1d;
-        if (slot?.PhotoId is not string photoId
-            || !PhotoLookup.TryGetValue(photoId, out var photo)
-            || photo.PixelWidth is not int photoWidth
-            || photo.PixelHeight is not int photoHeight
-            || photoWidth <= 0
-            || photoHeight <= 0)
+        if (photoFitInitialized)
         {
-            return userZoom;
+            try
+            {
+                await JS.InvokeVoidAsync("layoutEditor.disposePhotoFit", rendererRoot);
+            }
+            catch (JSDisconnectedException)
+            {
+            }
         }
-
-        var photoRatio = photoWidth / (double)photoHeight;
-        var slotRatio = GetRenderedSlotAspectRatio(targetSlot);
-        var widthFit = slotRatio / photoRatio;
-        var coverScale = Math.Max(widthFit, 1d);
-        var containScale = Math.Min(widthFit, 1d);
-        var coverFitZoom = coverScale / containScale;
-
-        return coverFitZoom * userZoom;
-    }
-
-    private double GetRenderedSlotAspectRatio(PhotoSlot slot)
-    {
-        if (Template is not { } template || template.Columns <= 0 || template.Rows <= 0)
-            return Math.Max(slot.Type.AspectRatio, 0.01d);
-
-        return Math.Max(0.01d,
-            PageAspectRatio
-            * slot.ColSpan / (double)template.Columns
-            * template.Rows / (double)slot.RowSpan);
     }
 
     private bool IsPhotoCompatible(PhotoSlot slot, string photoId) =>

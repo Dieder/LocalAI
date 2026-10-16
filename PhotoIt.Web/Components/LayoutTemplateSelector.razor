@@ -4,21 +4,22 @@
 
 <div class="template-selector">
     <div class="templates-grid">
-        @if (Templates is null || Templates.Count == 0)
+        @if (DisplayTemplates.Count == 0)
         {
             <div class="no-templates">No templates available</div>
         }
         else
         {
-            @foreach (var template in Templates)
+            @foreach (var template in DisplayTemplates)
             {
-                var isSelected = template.Id == SelectedTemplateId;
+                var isSelected = string.Equals(template.Id, SelectedTemplateId, StringComparison.OrdinalIgnoreCase);
                 var isLocked = PageHasPhotos && !isSelected;
                 var svg = template.ToSvg();
                 <div class="template-card @(isSelected ? "selected" : "") @(isLocked ? "locked" : "")"
                      role="button"
                      tabindex="@(isLocked ? -1 : 0)"
                      aria-pressed="@isSelected"
+                     aria-current="@(isSelected ? "true" : null)"
                      aria-disabled="@isLocked"
                      @onclick="() => SelectTemplate(template.Id, isLocked)"
                      @onkeypress="(e) => OnKeyPress(e, template.Id)">
@@ -26,6 +27,10 @@
                     
                     <div class="template-preview">
                         @((MarkupString)svg)
+                        @if (isSelected)
+                        {
+                            <span class="template-active-badge">Active layout</span>
+                        }
                     </div>
                     <div class="template-name">@template.Name</div>
                 </div>
@@ -46,6 +51,22 @@
 
     [Parameter]
     public EventCallback<string> SelectedTemplateIdChanged { get; set; }
+
+    private IReadOnlyList<LayoutTemplate> DisplayTemplates
+    {
+        get
+        {
+            var templates = Templates ?? [];
+            if (string.IsNullOrWhiteSpace(SelectedTemplateId)
+                || templates.Any(template => string.Equals(template.Id, SelectedTemplateId, StringComparison.OrdinalIgnoreCase))
+                || LayoutTemplates.Get(SelectedTemplateId) is not { } selectedTemplate)
+            {
+                return templates;
+            }
+
+            return templates.Append(selectedTemplate).ToList();
+        }
+    }
 
     private async Task SelectTemplate(string id, bool isLocked = false)
     {

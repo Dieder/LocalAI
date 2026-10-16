@@ -49,6 +49,7 @@ namespace PhotoIt.Data
                     "landscape" => "#8FCB8F",
                     "square" => "#F0C27A",
                     "panorama" => "#C9A0DC",
+                    "banner" => "orange",
                     "pagina4" => "#E8A0A0",
                     "paginaL" => "#A0D8D0",
                     _ => "#CCCCCC"
