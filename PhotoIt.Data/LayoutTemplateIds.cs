@@ -143,7 +143,7 @@ namespace PhotoIt.Data
 
         // Banner above 2 landscape photos
         new(LayoutTemplateIds.BannerLandscape2, "Banner + Landscape ×2",
-            columns: 2, rows: 2,
+            columns: 2, rows: 3,
             [
                 new(1, 1, PhotoType.Banner, ColSpan: 2),
                 new(1, 2, PhotoType.Landscape),
